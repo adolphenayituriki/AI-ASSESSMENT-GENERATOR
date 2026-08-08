@@ -22,7 +22,7 @@ function buildAssessmentPdf({ title, type, subject, className, questions = [], t
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({
       size: 'A4',
-      margins: { top: 58, bottom: 62, left: 58, right: 58 },
+      margins: { top: 76, bottom: 74, left: 64, right: 64 },
       bufferPages: true,
       info: { Title: title || 'Assessment', Author: SCHOOL_NAME },
     });
@@ -34,7 +34,7 @@ function buildAssessmentPdf({ title, type, subject, className, questions = [], t
 
     const pageW = doc.page.width;
     const pageH = doc.page.height;
-    const MARGIN = 58;
+    const MARGIN = 64;
     const W = pageW - MARGIN * 2;
     const total = questions.length;
     const mk = Number(marks) || 1;
@@ -49,25 +49,25 @@ function buildAssessmentPdf({ title, type, subject, className, questions = [], t
     };
 
     const ensureSpace = (h) => {
-      if (doc.y + h > pageH - 78) {
+      if (doc.y + h > pageH - 90) {
         doc.addPage();
-        doc.y = 50;
+        doc.y = 76;
       }
     };
 
     const drawDiagramBox = () => {
       const boxTop = doc.y;
       const boxH = 96;
-      doc.roundedRect(76, boxTop, W - 18, boxH, 5).lineWidth(1).strokeColor('#cbd5e1').dash(3, 3).stroke();
+      doc.roundedRect(MARGIN + 12, boxTop, W - 24, boxH, 5).lineWidth(1).strokeColor('#cbd5e1').dash(3, 3).stroke();
       doc.undash();
-      doc.font('Helvetica-Oblique').fontSize(8).fillColor(GREY).text('Draw your diagram in the box below.', 88, boxTop + boxH - 15, { width: W - 50 });
+      doc.font('Helvetica-Oblique').fontSize(8).fillColor(GREY).text('Draw your diagram in the box below.', MARGIN + 24, boxTop + boxH - 15, { width: W - 48 });
       doc.y = boxTop + boxH;
     };
 
     const drawGraphBox = (q) => {
-      const gx = 76;
+      const gx = MARGIN + 12;
       const gyTop = doc.y;
-      const gW = W - 18;
+      const gW = W - 24;
       const gH = 104;
       doc.lineWidth(0.25).strokeColor('#e2e8f0');
       for (let x = gx + 12; x < gx + gW; x += 12) {
@@ -97,29 +97,34 @@ function buildAssessmentPdf({ title, type, subject, className, questions = [], t
 
     // ---------------- Header ----------------
     if (HAS_LOGO) {
-      doc.image(LOGO_PATH, { fit: [56, 56], align: 'center' });
-      doc.moveDown(0.3);
+      const logoSize = 56;
+      doc.image(LOGO_PATH, (pageW - logoSize) / 2, 14, { fit: [logoSize, logoSize] });
+      doc.y = 14 + logoSize + 10;
+      hline(GREEN, 2);
+      doc.moveDown(0.9);
     }
-    doc.font('Helvetica-Bold').fontSize(17).fillColor(GREEN).text(SCHOOL_NAME, { width: W, align: 'center' });
-    doc.font('Helvetica-Bold').fontSize(9).fillColor(GREY).text(SCHOOL_MOTTO, { width: W, align: 'center' });
+    doc.font('Helvetica-Bold').fontSize(15).fillColor(GREEN).text(SCHOOL_NAME, { width: W, align: 'center' });
+    doc.moveDown(0.12);
+    doc.font('Helvetica-Bold').fontSize(8.5).fillColor(GREY).text(SCHOOL_MOTTO, { width: W, align: 'center' });
     if (SCHOOL_ADDR) {
-      doc.font('Helvetica').fontSize(8.5).fillColor(GREY).text(SCHOOL_ADDR, { width: W, align: 'center' });
       doc.moveDown(0.2);
+      doc.font('Helvetica').fontSize(8.5).fillColor(GREY).text(SCHOOL_ADDR, { width: W, align: 'center' });
+      doc.moveDown(0.15);
       doc.font('Helvetica').fontSize(8.5).fillColor(GREY).text(`${SCHOOL_PHONE}   •   ${SCHOOL_EMAIL}`, { width: W, align: 'center' });
     }
-    doc.moveDown(0.6);
-    hline(GREEN, 2);
-    doc.moveDown(0.6);
+    doc.moveDown(0.55);
+    hline(LINE, 1);
+    doc.moveDown(0.9);
 
     doc.font('Helvetica-Bold').fontSize(13).fillColor(DARK).text(title || 'Assessment', { width: W, align: 'center' });
     if (metaParts.length) {
       doc.moveDown(0.25);
       doc.font('Helvetica').fontSize(9).fillColor(GREY).text(metaParts.join('  •  '), { width: W, align: 'center' });
     }
-    doc.moveDown(0.7);
+    doc.moveDown(0.8);
     const cellW = W / 2;
-    const padX = 12;
-    const rowH = 24;
+    const padX = 14;
+    const rowH = 26;
     const infoRows = [
       [['Subject', subject || 'General'], ['Class', className || '—']],
       [['Date', new Date().toLocaleDateString('en-GB')], ['Total', `${totalMarks} mark${totalMarks === 1 ? '' : 's'}`]],
@@ -134,9 +139,9 @@ function buildAssessmentPdf({ title, type, subject, className, questions = [], t
     infoRows.forEach((row, r) => {
       row.forEach(([k, v], c) => {
         const x = MARGIN + c * cellW + padX;
-        const y = boxTop + r * rowH + 8;
+        const y = boxTop + r * rowH + 9;
         doc.font('Helvetica-Bold').fontSize(7.5).fillColor(GREY).text(k.toUpperCase(), x, y, { width: 80 });
-        doc.font('Helvetica').fontSize(9.5).fillColor(DARK).text(String(v || '—'), x + 90, y - 1, { width: cellW - padX - 100 });
+        doc.font('Helvetica').fontSize(9.5).fillColor(DARK).text(String(v || '—'), x + 96, y - 1, { width: cellW - padX - 96 });
       });
     });
     doc.y = boxTop + boxH;
@@ -228,7 +233,7 @@ function buildAssessmentPdf({ title, type, subject, className, questions = [], t
         if (!q.graph && !q.diagram) {
           doc.moveDown(0.5);
           for (let l = 0; l < 3; l += 1) {
-            doc.moveTo(76, doc.y).lineTo(pageW - MARGIN, doc.y).lineWidth(0.75).strokeColor(LINE).stroke();
+            doc.moveTo(MARGIN, doc.y).lineTo(pageW - MARGIN, doc.y).lineWidth(0.75).strokeColor(LINE).stroke();
             doc.moveDown(0.7);
           }
         } else {
@@ -253,11 +258,17 @@ function buildAssessmentPdf({ title, type, subject, className, questions = [], t
       }
     });
 
+    // ---------------- End of paper ----------------
+    doc.moveDown(1.2);
+    hline(LINE, 1);
+    doc.moveDown(0.5);
+    doc.font('Helvetica-Oblique').fontSize(9).fillColor(GREY).text('— End of paper —', { width: W, align: 'center' });
+
     // ---------------- Footer: page numbers ----------------
     const range = doc.bufferedPageRange();
     for (let i = range.start; i < range.start + range.count; i += 1) {
       doc.switchToPage(i);
-      const y = doc.page.height - 84;
+      const y = doc.page.height - 90;
       doc.font('Helvetica').fontSize(8).fillColor(GREY);
       doc.text(SCHOOL_NAME, MARGIN, y, { width: W / 2 });
       doc.text(`Page ${i + 1} of ${range.count}`, pageW - MARGIN, y, { width: W / 2, align: 'right' });

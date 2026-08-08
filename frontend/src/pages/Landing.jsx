@@ -1,4 +1,4 @@
-import { useNavigate, Link } from 'react-router-dom';
+﻿import { useNavigate, Link } from 'react-router-dom';
 import {
   Upload,
   Sparkles,
@@ -18,7 +18,7 @@ const features = [
   {
     icon: Upload,
     title: 'Upload any course notes',
-    text: 'PDF, DOCX or TXT — the text is extracted automatically. No long setup, no formatting needed.',
+    text: 'PDF, DOCX or TXT â€” the text is extracted automatically. No long setup, no formatting needed.',
   },
   {
     icon: Sparkles,
@@ -50,7 +50,7 @@ const steps = [
     icon: ScrollText,
     title: 'Configure the assessment',
     text: 'Tell the AI what to produce: type, question count, subject, class, difficulty, total marks and time allowed.',
-    details: ['Quiz · Exam · Exercise · Homework', 'Difficulty from Easy to Advanced', 'You set the total marks, the AI weights each question'],
+    details: ['Quiz Â· Exam Â· Exercise Â· Homework', 'Difficulty from Easy to Advanced', 'You set the total marks, the AI weights each question'],
   },
   {
     n: '3',
@@ -87,22 +87,22 @@ export default function Landing() {
             style={{ animationDelay: '-20s' }}
           />
 
-          <span className="float-icon absolute left-[8%] top-[18%] hidden rounded-xl bg-white/10 px-3 py-2.5 backdrop-blur md:block" style={{ '--rot': '-8deg' }}>
+          <span className="float-icon absolute left-[8%] top-[18%] hidden px-1 py-1 md:block" style={{ '--rot': '-8deg' }}>
             <FileText className="h-5 w-5 text-brand-gold" />
           </span>
-          <span className="float-icon absolute right-[10%] top-[24%] hidden rounded-xl bg-white/10 px-3 py-2.5 backdrop-blur md:block" style={{ '--rot': '6deg', animationDelay: '-2s' }}>
+          <span className="float-icon absolute right-[10%] top-[24%] hidden px-1 py-1 md:block" style={{ '--rot': '6deg', animationDelay: '-2s' }}>
             <CheckCircle2 className="h-5 w-5 text-brand-gold" />
           </span>
-          <span className="float-icon absolute left-[16%] bottom-[16%] hidden rounded-xl bg-white/10 px-3 py-2.5 backdrop-blur lg:block" style={{ '--rot': '10deg', animationDelay: '-4s' }}>
+          <span className="float-icon absolute left-[16%] bottom-[16%] hidden px-1 py-1 lg:block" style={{ '--rot': '10deg', animationDelay: '-4s' }}>
             <Sparkles className="h-5 w-5 text-brand-gold" />
           </span>
-          <span className="float-icon absolute right-[18%] bottom-[20%] hidden rounded-xl bg-white/10 px-3 py-2.5 backdrop-blur lg:block" style={{ '--rot': '-6deg', animationDelay: '-1.5s' }}>
+          <span className="float-icon absolute right-[18%] bottom-[20%] hidden px-1 py-1 lg:block" style={{ '--rot': '-6deg', animationDelay: '-1.5s' }}>
             <Download className="h-5 w-5 text-brand-gold" />
           </span>
-          <span className="float-icon absolute left-[5%] top-[45%] hidden rounded-xl bg-white/10 px-3 py-2.5 backdrop-blur xl:block" style={{ '--rot': '4deg', animationDelay: '-3s' }}>
+          <span className="float-icon absolute left-[5%] top-[45%] hidden px-1 py-1 xl:block" style={{ '--rot': '4deg', animationDelay: '-3s' }}>
             <ScrollText className="h-5 w-5 text-brand-gold" />
           </span>
-          <span className="float-icon absolute right-[6%] top-[52%] hidden rounded-xl bg-white/10 px-3 py-2.5 backdrop-blur xl:block" style={{ '--rot': '-9deg', animationDelay: '-5s' }}>
+          <span className="float-icon absolute right-[6%] top-[52%] hidden px-1 py-1 xl:block" style={{ '--rot': '-9deg', animationDelay: '-5s' }}>
             <Library className="h-5 w-5 text-brand-gold" />
           </span>
         </div>
@@ -118,7 +118,7 @@ export default function Landing() {
             </h1>
             <p className="mx-auto mt-4 max-w-xl text-sm leading-relaxed text-emerald-100/80 sm:text-base">
               Upload a course document and the AI writes a complete quiz, exam, exercise or homework with an answer
-              key and explanations — ready to print in seconds.
+              key and explanations â€” ready to print in seconds.
             </p>
             <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
               <button
@@ -132,7 +132,7 @@ export default function Landing() {
               </Link>
             </div>
             <p className="mt-4 text-xs text-emerald-100/60">
-              Works with or without an AI key — an offline generator always produces a usable paper.
+              Works with or without an AI key â€” an offline generator always produces a usable paper.
             </p>
           </div>
         </div>
@@ -140,7 +140,7 @@ export default function Landing() {
         <div className="border-t border-white/10 bg-white/5">
           <div className="container-page grid grid-cols-2 gap-6 py-6 text-center sm:grid-cols-4">
             {[
-              { icon: GraduationCap, label: 'Quiz · Exam · Exercise · Homework' },
+              { icon: GraduationCap, label: 'Quiz Â· Exam Â· Exercise Â· Homework' },
               { icon: CheckCircle2, label: 'Answer key with explanations' },
               { icon: FileCheck2, label: 'Student paper + marking guide' },
               { icon: ShieldCheck, label: 'Private per-teacher library' },
@@ -157,8 +157,7 @@ export default function Landing() {
       {/* Features */}
       <section className="container-page py-14 sm:py-20">
         <div className="mx-auto max-w-2xl text-center">
-          <p className="eyebrow text-brand-green-dark">Why it helps</p>
-          <h2 className="section-title mt-2">From notes to a full paper in seconds</h2>
+          <h2 className="section-title">From notes to a full paper in seconds</h2>
           <p className="section-subtitle">
             Designed for teachers who need real exam-style questions. Not trivia about the document itself.
           </p>
@@ -166,7 +165,7 @@ export default function Landing() {
         <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {features.map((f) => (
             <div key={f.title} className="card card-hover p-5">
-              <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-green-light text-brand-green-dark">
+              <span className="flex h-11 w-11 items-center justify-center rounded-xl text-brand-green-dark">
                 <f.icon className="h-5 w-5" />
               </span>
               <h3 className="mt-3.5 text-[15px] font-bold text-slate-900">{f.title}</h3>
@@ -180,8 +179,7 @@ export default function Landing() {
       <section className="border-y border-slate-200 bg-white">
         <div className="container-page py-14 sm:py-16">
           <div className="mx-auto max-w-2xl text-center">
-            <p className="eyebrow text-brand-green-dark">How it works</p>
-            <h2 className="section-title mt-2">Three simple steps</h2>
+            <h2 className="section-title">Three simple steps</h2>
           </div>
           <div className="mt-10 grid gap-6 sm:grid-cols-3">
             {steps.map((s) => (
@@ -189,7 +187,7 @@ export default function Landing() {
                 <span className="absolute -top-4 left-5 flex h-8 w-8 items-center justify-center rounded-full bg-brand-green-dark text-sm font-bold text-white">
                   {s.n}
                 </span>
-                <span className="mt-2 flex h-10 w-10 items-center justify-center rounded-lg bg-white text-brand-green-dark">
+                <span className="mt-2 flex h-10 w-10 items-center justify-center rounded-lg text-brand-green-dark">
                   <s.icon className="h-5 w-5" />
                 </span>
                 <h3 className="mt-3 text-[15px] font-bold text-slate-900">{s.title}</h3>
@@ -216,7 +214,7 @@ export default function Landing() {
       {/* Footer */}
       <footer className="bg-brand-green-ink py-6">
         <p className="text-center text-xs text-emerald-100/60">
-          DuFast EduAi · upload → generate → download · built as a standalone project ·{' '}
+          DuFast EduAi Â· upload â†’ generate â†’ download Â· built as a standalone project Â·{' '}
           <Link to="/developer" className="font-semibold text-brand-gold hover:underline">
             Meet the developer
           </Link>

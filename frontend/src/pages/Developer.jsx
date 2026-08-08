@@ -50,9 +50,11 @@ export default function Developer() {
         <div className="mt-10 grid gap-6 lg:grid-cols-5">
           {/* Identity card */}
           <div className="rounded-2xl border border-white/10 bg-white/5 p-6 text-center lg:col-span-2">
-            <span className="font-display mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-br from-brand-gold to-brand-green-dark text-3xl font-bold text-white shadow-lg">
-              {developer.name.split(' ').map((w) => w[0]).join('')}
-            </span>
+            <img
+              src="/adolphe.jpg"
+              alt={developer.name}
+              className="mx-auto h-28 w-28 rounded-full object-cover shadow-lg ring-4 ring-brand-gold/60"
+            />
             <h2 className="mt-4 text-lg font-bold text-white">{developer.name}</h2>
             <p className="mt-1 text-[13px] font-medium text-brand-gold">{developer.role}</p>
             <p className="mt-3 text-[13px] leading-relaxed text-emerald-100/80">{developer.statement}</p>

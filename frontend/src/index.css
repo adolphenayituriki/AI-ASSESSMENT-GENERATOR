@@ -1,0 +1,217 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    @apply bg-brand-cream font-sans text-slate-700 antialiased;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-display text-brand-green-deep;
+  }
+  ::selection {
+    @apply bg-brand-green-soft text-brand-green-deep;
+  }
+
+  /* Accessible keyboard focus */
+  :focus-visible {
+    @apply outline-none ring-2 ring-brand-green-dark ring-offset-2 ring-offset-white;
+  }
+}
+
+@layer components {
+  .container-page {
+    @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg bg-brand-green-dark px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:bg-brand-green-deep hover:shadow-md hover:-translate-y-px focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-green-dark focus-visible:ring-offset-2 active:translate-y-0;
+  }
+
+  .btn-outline {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 transition-all duration-200 hover:border-brand-green-dark hover:text-brand-green-dark hover:shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-green-dark focus-visible:ring-offset-2 active:translate-y-0;
+  }
+
+  .btn-white {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg bg-white px-5 py-2.5 text-sm font-semibold text-brand-green-deep shadow-sm transition-all duration-200 hover:bg-brand-green-light hover:shadow-md hover:-translate-y-px focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 active:translate-y-0;
+  }
+
+  .card {
+    @apply rounded-2xl border border-slate-200 bg-white shadow-card;
+  }
+
+  .card-hover {
+    @apply transition-all duration-300 hover:-translate-y-0.5 hover:border-brand-green-soft hover:shadow-lift;
+  }
+
+  .pill {
+    @apply inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ring-1 ring-inset;
+  }
+
+  .input-field {
+    @apply w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm placeholder-slate-400 transition hover:border-slate-400 focus:border-brand-green-dark focus:ring-2 focus:ring-brand-green-soft focus:outline-none;
+  }
+
+  .label-field {
+    @apply mb-1.5 block text-sm font-medium text-slate-700;
+  }
+
+  .section-title {
+    @apply text-2xl font-bold tracking-tight sm:text-3xl;
+  }
+
+  .section-subtitle {
+    @apply mt-2 text-sm leading-relaxed text-slate-500 sm:text-base;
+  }
+
+  .eyebrow {
+    @apply inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-widest;
+  }
+
+  .eyebrow::before {
+    content: '';
+    @apply h-px w-6 bg-brand-gold;
+  }
+
+  .chip {
+    @apply inline-flex items-center gap-1 rounded-md bg-brand-green-light px-2.5 py-1 text-xs font-semibold text-brand-green-dark;
+  }
+
+  /* Subtle scroll reveal (no external animation library) */
+  .reveal {
+    opacity: 0;
+    transform: translateY(12px);
+    transition: opacity 0.5s ease, transform 0.5s ease;
+  }
+  .reveal.is-visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* Hero entrance animation */
+  @keyframes hero-fade {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .hero-anim {
+    animation: hero-fade 0.7s ease both;
+  }
+
+  /* Skeleton loading shimmer */
+  .skeleton {
+    @apply relative overflow-hidden rounded-lg bg-slate-200/80;
+  }
+  .skeleton::after {
+    content: '';
+    @apply absolute inset-0;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.6), transparent);
+    animation: skeleton-shimmer 1.4s infinite;
+  }
+  @keyframes skeleton-shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+  }
+
+  /* Page fade transition */
+  @keyframes page-fade {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .page-fade {
+    animation: page-fade 0.35s ease backwards;
+  }
+
+  /* Thin scrollbar for admin/staff sidebars */
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.2) transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    @apply rounded-full bg-slate-300;
+  }
+
+  /* Dark scrollbar for the deep-green panel sidebars */
+  .scrollbar-dark {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.25) transparent;
+  }
+  .scrollbar-dark::-webkit-scrollbar {
+    width: 5px;
+  }
+  .scrollbar-dark::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .scrollbar-dark::-webkit-scrollbar-thumb {
+    @apply rounded-full bg-white/20 hover:bg-white/30;
+  }
+
+  /* Glass surface for sticky headers */
+  .glass {
+    @apply bg-white/85 backdrop-blur-xl;
+  }
+
+  /* Card entrance fade-up */
+  @keyframes fade-up {
+    from { opacity: 0; transform: translateY(14px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .fade-up {
+    animation: fade-up 0.45s ease both;
+  }
+  .stagger-1 { animation-delay: 60ms; }
+  .stagger-2 { animation-delay: 120ms; }
+  .stagger-3 { animation-delay: 180ms; }
+
+  /* Toast enter/exit */
+  @keyframes toast-in {
+    from { opacity: 0; transform: translateX(24px) scale(0.96); }
+    to { opacity: 1; transform: translateX(0) scale(1); }
+  }
+  .toast-enter {
+    animation: toast-in 0.22s ease both;
+  }
+  @keyframes toast-out {
+    from { opacity: 1; transform: translateX(0) scale(1); }
+    to { opacity: 0; transform: translateX(24px) scale(0.96); }
+  }
+  .toast-leave {
+    animation: toast-out 0.2s ease both;
+  }
+  @keyframes toast-countdown {
+    from { width: 100%; }
+    to { width: 0%; }
+  }
+  .toast-countdown {
+    animation: toast-countdown linear both;
+  }
+}
+
+/* Respect users who prefer reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  .reveal {
+    opacity: 1;
+    transform: none;
+  }
+  .hero-anim {
+    animation: none;
+  }
+  .fade-up {
+    animation: none;
+  }
+}

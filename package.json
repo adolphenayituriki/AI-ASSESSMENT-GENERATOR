@@ -1,0 +1,15 @@
+{
+  "name": "ai-assessment-tool",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Standalone AI assessment generator - upload a course document and generate quizzes, exams, exercises or homework with answer keys, downloadable as PDF/CSV.",
+  "engines": {
+    "node": "20.x"
+  },
+  "scripts": {
+    "install-backend": "npm install --prefix backend",
+    "install-frontend": "npm install --prefix frontend --include=dev",
+    "build": "npm run install-backend && npm run install-frontend && npm run build --prefix frontend",
+    "start": "node backend/server.js"
+  }
+}

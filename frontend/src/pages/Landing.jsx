@@ -115,13 +115,13 @@ export default function Landing() {
             src="/dufast-eduai.png"
             alt=""
             aria-hidden="true"
-            className="logo-drift absolute -left-20 top-1/2 h-64 w-64 -translate-y-1/2 rounded-2xl object-cover opacity-15 blur-[1px]"
+            className="logo-drift absolute left-2 top-[14%] h-32 w-32 rounded-2xl object-cover opacity-30 sm:left-6 sm:h-48 sm:w-48"
           />
           <img
-            src="/dufast-eduai.png"
+            src="/dufast-eduaii.png"
             alt=""
             aria-hidden="true"
-            className="logo-drift absolute -right-24 bottom-0 h-80 w-80 object-cover opacity-10 blur-[2px]"
+            className="logo-drift absolute bottom-[10%] right-2 h-36 w-36 rounded-2xl object-cover opacity-25 sm:right-6 sm:h-56 sm:w-56"
             style={{ animationDelay: '-20s' }}
           />
 

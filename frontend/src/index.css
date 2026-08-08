@@ -190,6 +190,35 @@
   .toast-countdown {
     animation: toast-countdown linear both;
   }
+
+  /* Animated hero background */
+  @keyframes bg-drift {
+    0%   { transform: translate(0, 0) scale(1); }
+    25%  { transform: translate(26px, -20px) scale(1.08); }
+    50%  { transform: translate(-20px, 18px) scale(0.94); }
+    75%  { transform: translate(14px, 24px) scale(1.05); }
+    100% { transform: translate(0, 0) scale(1); }
+  }
+  .bg-drift {
+    animation: bg-drift 18s ease-in-out infinite;
+  }
+
+  @keyframes float-y {
+    0%, 100% { transform: translateY(0) rotate(var(--rot, 0deg)); }
+    50%      { transform: translateY(-18px) rotate(var(--rot, 0deg)); }
+  }
+  .float-icon {
+    animation: float-y 6s ease-in-out infinite;
+  }
+
+  @keyframes logo-drift {
+    from { transform: translateY(0) rotate(0deg) scale(1); }
+    50%  { transform: translateY(-26px) rotate(180deg) scale(1.06); }
+    to   { transform: translateY(0) rotate(360deg) scale(1); }
+  }
+  .logo-drift {
+    animation: logo-drift 40s linear infinite;
+  }
 }
 
 /* Respect users who prefer reduced motion */

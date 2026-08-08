@@ -55,7 +55,7 @@ export default function Login() {
             <div className="relative">
               <BrandLogo size={56} className="mb-4" />
               <h1 className="font-display text-xl font-bold text-white">DuFast EduAi</h1>
-              <p className="mt-0.5 text-[13px] text-emerald-100/80">Upload course notes, generate a real exam</p>
+              <p className="mt-0.5 text-[13px] text-emerald-100/80">Turn your course notes into exam-ready papers</p>
               <p className="mt-1 text-[10px] font-semibold uppercase tracking-widest text-brand-gold">
                 Quizzes · Exams · Exercises · Homework
               </p>

@@ -6,6 +6,7 @@ import BrandLogo from './components/BrandLogo';
 
 import Login from './pages/Login';
 import Landing from './pages/Landing';
+import Developer from './pages/Developer';
 import AIExam from './pages/staff/AIExam';
 import { roleHome, roleLabel } from './utils/helpers';
 
@@ -70,6 +71,7 @@ export default function App() {
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/" element={<Landing />} />
+            <Route path="/developer" element={<Developer />} />
             <Route
               path="/app"
               element={

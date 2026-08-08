@@ -61,7 +61,7 @@ export default function Developer() {
 
             <div className="mt-6 space-y-2 text-left">
               <a href={`mailto:${developer.email}`} className="flex items-center gap-2.5 rounded-lg bg-white/5 px-3 py-2 text-[12px] text-emerald-100/90 transition hover:bg-white/10 hover:text-white">
-                <Mail className="h-4 w-4 shrink-0 text-brand-gold" /> {developer.email}
+                <Mail className="h-4 w-4 shrink-0 text-brand-gold" /> <span className="min-w-0 break-all">{developer.email}</span>
               </a>
               <a href={`tel:${developer.phone.replace(/\s+/g, '')}`} className="flex items-center gap-2.5 rounded-lg bg-white/5 px-3 py-2 text-[12px] text-emerald-100/90 transition hover:bg-white/10 hover:text-white">
                 <Phone className="h-4 w-4 shrink-0 text-brand-gold" /> {developer.phone}

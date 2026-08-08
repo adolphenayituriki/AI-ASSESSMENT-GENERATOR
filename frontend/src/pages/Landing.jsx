@@ -18,7 +18,7 @@ const features = [
   {
     icon: Upload,
     title: 'Upload any course notes',
-    text: 'PDF, DOCX or TXT â€” the text is extracted automatically. No long setup, no formatting needed.',
+    text: 'PDF, DOCX or TXT — the text is extracted automatically. No long setup, no formatting needed.',
   },
   {
     icon: Sparkles,
@@ -50,7 +50,7 @@ const steps = [
     icon: ScrollText,
     title: 'Configure the assessment',
     text: 'Tell the AI what to produce: type, question count, subject, class, difficulty, total marks and time allowed.',
-    details: ['Quiz Â· Exam Â· Exercise Â· Homework', 'Difficulty from Easy to Advanced', 'You set the total marks, the AI weights each question'],
+    details: ['Quiz · Exam · Exercise · Homework', 'Difficulty from Easy to Advanced', 'You set the total marks, the AI weights each question'],
   },
   {
     n: '3',
@@ -77,13 +77,13 @@ export default function Landing() {
             src="/dufast-eduai.png"
             alt=""
             aria-hidden="true"
-            className="logo-drift absolute left-2 top-[14%] h-32 w-32 rounded-2xl object-cover opacity-30 sm:left-6 sm:h-48 sm:w-48"
+            className="logo-drift absolute left-2 top-[14%] h-28 w-28 rounded-2xl object-cover opacity-30 sm:left-6 sm:h-48 sm:w-48"
           />
           <img
             src="/dufast-eduaii.png"
             alt=""
             aria-hidden="true"
-            className="logo-drift absolute bottom-[10%] right-2 h-36 w-36 rounded-2xl object-cover opacity-25 sm:right-6 sm:h-56 sm:w-56"
+            className="logo-drift absolute bottom-[10%] right-2 h-32 w-32 rounded-2xl object-cover opacity-25 sm:right-6 sm:h-56 sm:w-56"
             style={{ animationDelay: '-20s' }}
           />
 
@@ -107,45 +107,45 @@ export default function Landing() {
           </span>
         </div>
 
-        <div className="container-page relative py-16 sm:py-24">
+        <div className="container-page relative py-14 sm:py-24">
           <div className="mx-auto max-w-3xl text-center">
-            <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3.5 py-1.5 text-xs font-semibold text-emerald-100 backdrop-blur">
+            <span className="inline-flex max-w-full items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3.5 py-1.5 text-xs font-semibold text-emerald-100 backdrop-blur">
               <BrandLogo size={24} />
-              DuFast EduAi. AI-powered assessment generator
+              <span className="truncate">DuFast EduAi. AI-powered assessment generator</span>
             </span>
-            <h1 className="font-display mt-5 text-3xl font-bold leading-tight text-white sm:text-5xl">
+            <h1 className="font-display mt-5 text-[28px] font-bold leading-tight text-white sm:text-5xl">
               Turn your course notes into <span className="font-hand text-brand-gold">exam-ready papers</span>
             </h1>
             <p className="mx-auto mt-4 max-w-xl text-sm leading-relaxed text-emerald-100/80 sm:text-base">
               Upload a course document and the AI writes a complete quiz, exam, exercise or homework with an answer
-              key and explanations â€” ready to print in seconds.
+              key and explanations — ready to print in seconds.
             </p>
-            <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+            <div className="mt-8 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center">
               <button
                 onClick={() => navigate('/app')}
-                className="btn-primary !bg-brand-gold !text-brand-green-ink hover:!bg-brand-gold/90"
+                className="btn-primary !bg-brand-gold !text-brand-green-ink hover:!bg-brand-gold/90 sm:w-auto"
               >
                 Start generating assessments <ArrowRight className="h-4 w-4" />
               </button>
-              <Link to="/login" className="btn-white">
+              <Link to="/login" className="btn-white sm:w-auto">
                 Sign in
               </Link>
             </div>
             <p className="mt-4 text-xs text-emerald-100/60">
-              Works with or without an AI key â€” an offline generator always produces a usable paper.
+              Works with or without an AI key — an offline generator always produces a usable paper.
             </p>
           </div>
         </div>
 
         <div className="border-t border-white/10 bg-white/5">
-          <div className="container-page grid grid-cols-2 gap-6 py-6 text-center sm:grid-cols-4">
+          <div className="container-page grid grid-cols-1 gap-3 py-6 text-center sm:grid-cols-2 lg:grid-cols-4 sm:gap-6">
             {[
-              { icon: GraduationCap, label: 'Quiz Â· Exam Â· Exercise Â· Homework' },
+              { icon: GraduationCap, label: 'Quiz · Exam · Exercise · Homework' },
               { icon: CheckCircle2, label: 'Answer key with explanations' },
               { icon: FileCheck2, label: 'Student paper + marking guide' },
               { icon: ShieldCheck, label: 'Private per-teacher library' },
             ].map((s) => (
-              <div key={s.label} className="flex items-center justify-center gap-2 text-emerald-100/80">
+              <div key={s.label} className="flex flex-col items-center justify-center gap-1.5 text-emerald-100/80 sm:flex-row sm:gap-2">
                 <s.icon className="h-4 w-4 shrink-0 text-brand-gold" />
                 <span className="text-xs font-medium sm:text-[13px]">{s.label}</span>
               </div>
@@ -157,14 +157,14 @@ export default function Landing() {
       {/* Features */}
       <section className="container-page py-14 sm:py-20">
         <div className="mx-auto max-w-2xl text-center">
-          <h2 className="font-hand text-4xl font-bold text-brand-green-deep sm:text-5xl">
+          <h2 className="font-hand text-3xl font-bold text-brand-green-deep sm:text-5xl">
             From notes to a full paper in seconds
           </h2>
           <p className="section-subtitle">
             Designed for teachers who need real exam-style questions. Not trivia about the document itself.
           </p>
         </div>
-        <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-10 grid gap-5 sm:mt-12 sm:grid-cols-2 lg:grid-cols-4">
           {features.map((f) => (
             <div
               key={f.title}
@@ -185,11 +185,11 @@ export default function Landing() {
       <section className="border-y border-slate-200 bg-white">
         <div className="container-page py-14 sm:py-16">
           <div className="mx-auto max-w-2xl text-center">
-            <h2 className="font-hand text-4xl font-bold text-brand-green-deep sm:text-5xl">
+            <h2 className="font-hand text-3xl font-bold text-brand-green-deep sm:text-5xl">
               Three simple steps
             </h2>
           </div>
-          <div className="relative mt-14 grid gap-8 sm:grid-cols-3 sm:gap-6">
+          <div className="relative mt-14 grid gap-8 sm:mt-14 sm:grid-cols-3 sm:gap-6">
             {steps.map((s, i) => (
               <div
                 key={s.n}
@@ -217,7 +217,7 @@ export default function Landing() {
               </div>
             ))}
           </div>
-          <div className="mt-14 text-center">
+          <div className="mt-12 text-center sm:mt-14">
             <button onClick={() => navigate('/app')} className="btn-primary">
               <FileText className="h-4 w-4" /> Try it now
             </button>
@@ -226,9 +226,9 @@ export default function Landing() {
       </section>
 
       {/* Footer */}
-      <footer className="bg-brand-green-ink py-6">
-        <p className="text-center text-xs text-emerald-100/60">
-          DuFast EduAi Â· upload â†’ generate â†’ download Â· built as a standalone project Â·{' '}
+      <footer className="bg-brand-green-ink px-4 py-6">
+        <p className="mx-auto max-w-2xl text-center text-xs leading-relaxed text-emerald-100/60">
+          DuFast EduAi · upload → generate → download · built as a standalone project ·{' '}
           <Link to="/developer" className="font-semibold text-brand-gold hover:underline">
             Meet the developer
           </Link>

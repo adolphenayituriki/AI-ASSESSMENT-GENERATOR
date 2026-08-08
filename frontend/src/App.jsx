@@ -29,11 +29,13 @@ function TopBar() {
   return (
     <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/85 backdrop-blur-xl">
       <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
-        <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2.5">
           <BrandLogo size={36} />
           <div>
             <p className="font-display text-sm font-bold leading-tight text-slate-900">DuFast EduAi</p>
-            <p className="text-[11px] leading-tight text-slate-400">Upload notes → generate a real exam → download</p>
+            <p className="hidden text-[11px] leading-tight text-slate-400 sm:block">
+              Upload notes → generate a real exam → download
+            </p>
           </div>
         </div>
         {user ? (

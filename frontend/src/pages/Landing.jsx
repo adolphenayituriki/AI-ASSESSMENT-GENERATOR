@@ -114,7 +114,7 @@ export default function Landing() {
               DuFast EduAi. AI-powered assessment generator
             </span>
             <h1 className="font-display mt-5 text-3xl font-bold leading-tight text-white sm:text-5xl">
-              Turn your course notes into <span className="text-brand-gold">exam-ready papers</span>
+              Turn your course notes into <span className="font-hand text-brand-gold">exam-ready papers</span>
             </h1>
             <p className="mx-auto mt-4 max-w-xl text-sm leading-relaxed text-emerald-100/80 sm:text-base">
               Upload a course document and the AI writes a complete quiz, exam, exercise or homework with an answer
@@ -157,18 +157,24 @@ export default function Landing() {
       {/* Features */}
       <section className="container-page py-14 sm:py-20">
         <div className="mx-auto max-w-2xl text-center">
-          <h2 className="section-title">From notes to a full paper in seconds</h2>
+          <h2 className="font-hand text-4xl font-bold text-brand-green-deep sm:text-5xl">
+            From notes to a full paper in seconds
+          </h2>
           <p className="section-subtitle">
             Designed for teachers who need real exam-style questions. Not trivia about the document itself.
           </p>
         </div>
-        <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
           {features.map((f) => (
-            <div key={f.title} className="card card-hover p-5">
-              <span className="flex h-11 w-11 items-center justify-center rounded-xl text-brand-green-dark">
-                <f.icon className="h-5 w-5" />
+            <div
+              key={f.title}
+              className="group card card-hover relative overflow-hidden p-6 text-center"
+            >
+              <span className="absolute left-0 top-0 h-1 w-0 bg-gradient-to-r from-brand-gold to-brand-green-dark transition-all duration-300 group-hover:w-full" />
+              <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl text-brand-green-dark transition-colors duration-300 group-hover:text-brand-gold">
+                <f.icon className="h-6 w-6" />
               </span>
-              <h3 className="mt-3.5 text-[15px] font-bold text-slate-900">{f.title}</h3>
+              <h3 className="mt-4 text-[15px] font-bold text-slate-900">{f.title}</h3>
               <p className="mt-1.5 text-[13px] leading-relaxed text-slate-500">{f.text}</p>
             </div>
           ))}
@@ -179,20 +185,25 @@ export default function Landing() {
       <section className="border-y border-slate-200 bg-white">
         <div className="container-page py-14 sm:py-16">
           <div className="mx-auto max-w-2xl text-center">
-            <h2 className="section-title">Three simple steps</h2>
+            <h2 className="font-hand text-4xl font-bold text-brand-green-deep sm:text-5xl">
+              Three simple steps
+            </h2>
           </div>
-          <div className="mt-10 grid gap-6 sm:grid-cols-3">
-            {steps.map((s) => (
-              <div key={s.n} className="relative rounded-2xl border border-slate-200 bg-brand-green-light/60 p-5">
-                <span className="absolute -top-4 left-5 flex h-8 w-8 items-center justify-center rounded-full bg-brand-green-dark text-sm font-bold text-white">
+          <div className="relative mt-14 grid gap-8 sm:grid-cols-3 sm:gap-6">
+            {steps.map((s, i) => (
+              <div
+                key={s.n}
+                className="relative rounded-2xl border border-slate-200 bg-brand-green-light/40 p-6 shadow-soft transition-all duration-300 hover:-translate-y-1 hover:border-brand-green-soft hover:shadow-lift"
+              >
+                <span className="font-hand absolute -top-8 left-5 text-6xl font-bold leading-none text-brand-gold drop-shadow-sm">
                   {s.n}
                 </span>
-                <span className="mt-2 flex h-10 w-10 items-center justify-center rounded-lg text-brand-green-dark">
-                  <s.icon className="h-5 w-5" />
+                <span className="mt-4 flex h-11 w-11 items-center justify-center rounded-2xl text-brand-green-dark">
+                  <s.icon className="h-6 w-6" />
                 </span>
                 <h3 className="mt-3 text-[15px] font-bold text-slate-900">{s.title}</h3>
                 <p className="mt-1 text-[13px] leading-relaxed text-slate-500">{s.text}</p>
-                <ul className="mt-3 space-y-1.5">
+                <ul className="mt-3 space-y-1.5 border-t border-slate-200 pt-3">
                   {s.details.map((d) => (
                     <li key={d} className="flex items-start gap-1.5 text-[12px] text-slate-600">
                       <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-brand-green-dark" />
@@ -200,10 +211,13 @@ export default function Landing() {
                     </li>
                   ))}
                 </ul>
+                {i < steps.length - 1 && (
+                  <ArrowRight className="absolute -right-5 top-1/2 hidden h-5 w-5 -translate-y-1/2 text-slate-300 sm:block" />
+                )}
               </div>
             ))}
           </div>
-          <div className="mt-10 text-center">
+          <div className="mt-14 text-center">
             <button onClick={() => navigate('/app')} className="btn-primary">
               <FileText className="h-4 w-4" /> Try it now
             </button>

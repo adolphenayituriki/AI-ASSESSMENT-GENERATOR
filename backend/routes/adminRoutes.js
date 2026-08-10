@@ -35,7 +35,7 @@ const findOrError = async (res, id) => {
 const countAdmins = async () => User.countDocuments({ role: 'admin', active: true });
 
 // List all users
-router.get('/', protect, adminStrict, async (req, res) => {
+router.get('/users', protect, adminStrict, async (req, res) => {
   try {
     const users = await User.find().sort({ role: 1, name: 1 });
     res.json(users.map(sanitize));
@@ -45,7 +45,7 @@ router.get('/', protect, adminStrict, async (req, res) => {
 });
 
 // Create a user
-router.post('/', protect, adminStrict, async (req, res) => {
+router.post('/users', protect, adminStrict, async (req, res) => {
   try {
     const { name, username, email, password, role = 'teacher', title = '', assignedClass = '', active = true } = req.body;
     if (!name || !username || !email || !password) {
@@ -89,7 +89,7 @@ router.post('/', protect, adminStrict, async (req, res) => {
 });
 
 // Update a user
-router.patch('/:id', protect, adminStrict, async (req, res) => {
+router.patch('/users/:id', protect, adminStrict, async (req, res) => {
   try {
     const target = await findOrError(res, req.params.id);
     if (!target) return;
@@ -148,7 +148,7 @@ router.patch('/:id', protect, adminStrict, async (req, res) => {
 });
 
 // Delete a user
-router.delete('/:id', protect, adminStrict, async (req, res) => {
+router.delete('/users/:id', protect, adminStrict, async (req, res) => {
   try {
     const target = await findOrError(res, req.params.id);
     if (!target) return;

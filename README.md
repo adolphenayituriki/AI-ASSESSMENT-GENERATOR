@@ -35,7 +35,7 @@ and opens on a public landing page — no forced login.
    the AI is working with.
 4. **Tell the AI what you want** — assessment type, subject, class, difficulty,
    title, and how many questions.
-5. **Let it work** — the AI reads the notes and writes real exam-style questions
+5. **Let it work** — the AI reads the notes and writes real exam-quality questions
    that test the actual subject content, not the layout of the book.
 6. **Review and refine** — edit questions, marks and explanations until it feels
    right, then save or download.

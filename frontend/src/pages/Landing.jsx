@@ -10,7 +10,7 @@ const features = [
   {
     fa: "fa-wand-magic-sparkles",
     title: "AI writes the paper",
-    text: "Quiz, exam, exercise or homework. Real exam-style questions with an answer key and explanations.",
+    text: "Quizzes, exams, exercises and homework. Real exam-quality questions with an answer key and explanations.",
   },
   {
     fa: "fa-download",
@@ -66,16 +66,28 @@ export default function Landing() {
   return (
     <div>
       {/* Hero */}
-      <section className="relative overflow-hidden bg-brand-green-deep">
+      <section className="relative overflow-hidden bg-gradient-to-br from-brand-green-ink via-brand-green-deep to-brand-green-dark">
+        <div className="pointer-events-none absolute inset-0 overflow-hidden">
+          <video
+            className="ken-burns h-full w-full object-cover opacity-40 mix-blend-screen"
+            autoPlay
+            muted
+            loop
+            playsInline
+            preload="metadata"
+            aria-hidden="true"
+          >
+            <source
+              src="/videos/Hailuo_Video_create a video as background v_543345892747853830 (3).mp4"
+              type="video/mp4"
+            />
+          </video>
+        </div>
         <div className="pointer-events-none absolute inset-0">
-          <div className="bg-drift absolute -left-24 -top-24 h-80 w-80 rounded-full bg-brand-green-dark/50 blur-3xl" />
+          <div className="bg-drift absolute -left-24 -top-24 h-80 w-80 rounded-full bg-white/10 blur-3xl" />
           <div
-            className="bg-drift absolute -bottom-24 -right-24 h-96 w-96 rounded-full bg-brand-green/40 blur-3xl"
+            className="bg-drift absolute -bottom-24 -right-24 h-96 w-96 rounded-full bg-brand-gold/10 blur-3xl"
             style={{ animationDelay: "-6s" }}
-          />
-          <div
-            className="bg-drift absolute right-1/3 top-1/4 h-40 w-40 rounded-full bg-brand-gold/10 blur-3xl"
-            style={{ animationDelay: "-12s" }}
           />
 
           <img
@@ -84,55 +96,33 @@ export default function Landing() {
             aria-hidden="true"
             className="logo-drift absolute left-2 top-[14%] h-28 w-28 rounded-2xl object-cover opacity-30 sm:left-6 sm:h-48 sm:w-48"
           />
+
           <img
-            src="/dufast-eduaii.png"
+            src="/images/float-exam.jpg"
             alt=""
             aria-hidden="true"
-            className="logo-drift absolute bottom-[10%] right-2 h-32 w-32 rounded-2xl object-cover opacity-25 sm:right-6 sm:h-56 sm:w-56"
-            style={{ animationDelay: "-20s" }}
-          />
-
-          <span
-            className="float-icon absolute left-[8%] top-[18%] hidden px-1 py-1 md:block"
-            style={{ "--rot": "-8deg" }}
-          >
-            <i className="fa-solid fa-file-lines text-xl text-brand-gold" />
-          </span>
-          <span
-            className="float-icon absolute right-[10%] top-[24%] hidden px-1 py-1 md:block"
+            className="float-icon absolute right-[8%] top-[18%] hidden h-20 w-20 rounded-full object-cover opacity-60 shadow-lg ring-2 ring-white/20 md:block"
             style={{ "--rot": "6deg", animationDelay: "-2s" }}
-          >
-            <i className="fa-solid fa-circle-check text-xl text-brand-gold" />
-          </span>
-          <span
-            className="float-icon absolute left-[16%] bottom-[16%] hidden px-1 py-1 lg:block"
+          />
+          <img
+            src="/images/float-study.jpg"
+            alt=""
+            aria-hidden="true"
+            className="float-icon absolute left-[14%] bottom-[22%] hidden h-24 w-24 rounded-full object-cover opacity-55 shadow-lg ring-2 ring-white/20 lg:block"
             style={{ "--rot": "10deg", animationDelay: "-4s" }}
-          >
-            <i className="fa-solid fa-wand-magic-sparkles text-xl text-brand-gold" />
-          </span>
-          <span
-            className="float-icon absolute right-[18%] bottom-[20%] hidden px-1 py-1 lg:block"
-            style={{ "--rot": "-6deg", animationDelay: "-1.5s" }}
-          >
-            <i className="fa-solid fa-download text-xl text-brand-gold" />
-          </span>
-          <span
-            className="float-icon absolute left-[5%] top-[45%] hidden px-1 py-1 xl:block"
-            style={{ "--rot": "4deg", animationDelay: "-3s" }}
-          >
-            <i className="fa-solid fa-scroll text-xl text-brand-gold" />
-          </span>
-          <span
-            className="float-icon absolute right-[6%] top-[52%] hidden px-1 py-1 xl:block"
-            style={{ "--rot": "-9deg", animationDelay: "-5s" }}
-          >
-            <i className="fa-solid fa-book text-xl text-brand-gold" />
-          </span>
+          />
+          <img
+            src="/images/float-notes.jpg"
+            alt=""
+            aria-hidden="true"
+            className="float-icon absolute left-[42%] top-[10%] hidden h-16 w-16 rounded-full object-cover opacity-50 shadow-md ring-2 ring-white/15 xl:block"
+            style={{ "--rot": "-7deg", animationDelay: "-1s" }}
+          />
         </div>
 
         <div className="container-page relative py-14 sm:py-24">
           <div className="mx-auto max-w-3xl text-center">
-            <span className="inline-flex max-w-full items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3.5 py-1.5 text-xs font-semibold text-emerald-100 backdrop-blur">
+            <span className="inline-flex max-w-full items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3.5 py-1.5 text-xs font-semibold text-white/90 backdrop-blur">
               <BrandLogo size={24} />
               <span className="truncate">
                 DuFast EduAi. AI-powered assessment generator
@@ -141,10 +131,10 @@ export default function Landing() {
             <h1 className="font-display mt-5 text-[28px] font-bold leading-tight text-white sm:text-5xl">
               Turn your course notes into{" "}
               <span className="font-hand text-brand-gold">
-                exam-ready papers
+                Quiz, Test, Exam, Homework-ready papers
               </span>
             </h1>
-            <p className="mx-auto mt-4 max-w-xl text-sm leading-relaxed text-emerald-100/80 sm:text-base">
+            <p className="mx-auto mt-4 max-w-xl text-sm leading-relaxed text-white/70 sm:text-base">
               Upload a course document and the AI writes a complete quiz, exam,
               exercise or homework with an answer key and explanations. Ready to
               print in seconds.
@@ -161,7 +151,7 @@ export default function Landing() {
                 Sign in
               </Link>
             </div>
-            <p className="mt-4 text-xs text-emerald-100/60">
+            <p className="mt-4 text-xs text-white/50">
               Works with or without an AI key — an offline generator always
               produces a usable paper.
             </p>
@@ -183,8 +173,8 @@ export default function Landing() {
                 key={s.label}
                 className="flex items-center justify-center gap-2 px-2 text-center"
               >
-                <i className={`fa-solid ${s.fa} text-base text-brand-gold`} />
-                <span className="text-[11px] font-medium leading-tight text-emerald-100/80 sm:text-[13px]">
+                <i className={`fa-solid ${s.fa} text-base text-white/60`} />
+                <span className="text-[11px] font-medium leading-tight text-white/80 sm:text-[13px]">
                   {s.label}
                 </span>
               </div>
@@ -200,7 +190,8 @@ export default function Landing() {
             From notes to a full paper in seconds
           </h2>
           <p className="section-subtitle">
-            Designed for teachers who need real exam-style questions. Not trivia
+            Real exam-quality questions for quizzes, exams, exercises and
+            homework — written from the actual content of your notes, not trivia
             about the document itself.
           </p>
         </div>
@@ -210,8 +201,8 @@ export default function Landing() {
               key={f.title}
               className="group card card-hover relative overflow-hidden rounded-2xl p-6 text-center"
             >
-              <i className={`fa-solid ${f.fa} text-3xl text-brand-green-dark transition-colors duration-300 group-hover:text-brand-gold`} />
-              <h3 className="mt-4 text-[15px] font-bold text-slate-900 transition-colors duration-300 group-hover:text-brand-green-deep">
+              <i className={`fa-solid ${f.fa} text-3xl text-brand-green-dark`} />
+              <h3 className="mt-4 text-[15px] font-bold text-slate-900">
                 {f.title}
               </h3>
               <p className="mt-1.5 text-[13px] leading-relaxed text-slate-500">
@@ -234,7 +225,7 @@ export default function Landing() {
             {steps.map((s, i) => (
               <div
                 key={s.n}
-                className="relative rounded-2xl border border-slate-200 bg-brand-green-light/40 p-6 shadow-soft transition-all duration-300 hover:-translate-y-1 hover:border-brand-green-soft hover:shadow-lift"
+                className="relative rounded-2xl border border-slate-200 bg-white p-6 shadow-soft transition-all duration-300 hover:-translate-y-1 hover:border-brand-green-soft hover:shadow-lift"
               >
                 <span className="font-hand absolute -top-8 left-5 text-6xl font-bold leading-none text-brand-gold drop-shadow-sm">
                   {s.n}
@@ -273,7 +264,7 @@ export default function Landing() {
 
       {/* Footer */}
       <footer className="bg-brand-green-ink px-4 py-6">
-        <p className="mx-auto max-w-2xl text-center text-xs leading-relaxed text-emerald-100/60">
+        <p className="mx-auto max-w-2xl text-center text-xs leading-relaxed text-white/60">
           DuFast EduAi · upload → generate → download · built as a standalone
           project ·{" "}
           <Link

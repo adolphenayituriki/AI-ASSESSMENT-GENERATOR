@@ -38,6 +38,47 @@ router.get('/me', protect, async (req, res) => {
   res.json({ user: publicUser(req.user) });
 });
 
+router.post('/register', async (req, res) => {
+  try {
+    const { name, username, email, password } = req.body;
+    if (!name || !username || !email || !password) {
+      return res.status(400).json({ message: 'All fields are required' });
+    }
+    if (password.length < 6) {
+      return res.status(400).json({ message: 'Password must be at least 6 characters' });
+    }
+
+    const cleanUsername = String(username).trim().toLowerCase();
+    const cleanEmail = String(email).trim().toLowerCase();
+
+    const existing = await User.findOne({ $or: [{ username: cleanUsername }, { email: cleanEmail }] });
+    if (existing) {
+      return res.status(400).json({
+        message: existing.email === cleanEmail ? 'An account with this email already exists' : 'This username is already taken',
+      });
+    }
+
+    const user = await User.create({
+      name: String(name).trim(),
+      username: cleanUsername,
+      email: cleanEmail,
+      password,
+      role: 'teacher',
+    });
+
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
+      expiresIn: process.env.JWT_EXPIRES_IN || '7d',
+    });
+
+    res.status(201).json({ token, user: publicUser(user) });
+  } catch (error) {
+    if (error.code === 11000) {
+      return res.status(400).json({ message: 'Username or email is already registered' });
+    }
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
 router.post('/change-password', protect, async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;

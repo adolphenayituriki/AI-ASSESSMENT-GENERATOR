@@ -1,37 +1,24 @@
 ﻿import { useNavigate, Link } from "react-router-dom";
-import {
-  Upload,
-  Sparkles,
-  Download,
-  Library,
-  FileCheck2,
-  FileText,
-  CheckCircle2,
-  ArrowRight,
-  GraduationCap,
-  ScrollText,
-  ShieldCheck,
-} from "lucide-react";
 import BrandLogo from "../components/BrandLogo";
 
 const features = [
   {
-    icon: Upload,
+    fa: "fa-upload",
     title: "Upload any course notes",
     text: "PDF, DOCX or TXT — the text is extracted automatically. No long setup, no formatting needed.",
   },
   {
-    icon: Sparkles,
+    fa: "fa-wand-magic-sparkles",
     title: "AI writes the paper",
     text: "Quiz, exam, exercise or homework. Real exam-style questions with an answer key and explanations.",
   },
   {
-    icon: Download,
+    fa: "fa-download",
     title: "Download instantly",
     text: "Student paper (PDF), marking guide (PDF) or CSV for spreadsheets and e-learning platforms.",
   },
   {
-    icon: Library,
+    fa: "fa-book",
     title: "Keep a library",
     text: "Every generated assessment is saved to your library so you can re-download or print anytime.",
   },
@@ -40,7 +27,7 @@ const features = [
 const steps = [
   {
     n: "1",
-    icon: Upload,
+    fa: "fa-upload",
     title: "Upload your course document",
     text: "Choose any notes file and the text is extracted automatically. No formatting, no long setup.",
     details: [
@@ -51,7 +38,7 @@ const steps = [
   },
   {
     n: "2",
-    icon: ScrollText,
+    fa: "fa-scroll",
     title: "Configure the assessment",
     text: "Tell the AI what to produce: type, question count, subject, class, difficulty, total marks and time allowed.",
     details: [
@@ -62,7 +49,7 @@ const steps = [
   },
   {
     n: "3",
-    icon: FileCheck2,
+    fa: "fa-file-circle-check",
     title: "Generate & export",
     text: "Preview the full paper with answers and explanations, save it to your library, or export it.",
     details: [
@@ -109,37 +96,37 @@ export default function Landing() {
             className="float-icon absolute left-[8%] top-[18%] hidden px-1 py-1 md:block"
             style={{ "--rot": "-8deg" }}
           >
-            <FileText className="h-5 w-5 text-brand-gold" />
+            <i className="fa-solid fa-file-lines text-xl text-brand-gold" />
           </span>
           <span
             className="float-icon absolute right-[10%] top-[24%] hidden px-1 py-1 md:block"
             style={{ "--rot": "6deg", animationDelay: "-2s" }}
           >
-            <CheckCircle2 className="h-5 w-5 text-brand-gold" />
+            <i className="fa-solid fa-circle-check text-xl text-brand-gold" />
           </span>
           <span
             className="float-icon absolute left-[16%] bottom-[16%] hidden px-1 py-1 lg:block"
             style={{ "--rot": "10deg", animationDelay: "-4s" }}
           >
-            <Sparkles className="h-5 w-5 text-brand-gold" />
+            <i className="fa-solid fa-wand-magic-sparkles text-xl text-brand-gold" />
           </span>
           <span
             className="float-icon absolute right-[18%] bottom-[20%] hidden px-1 py-1 lg:block"
             style={{ "--rot": "-6deg", animationDelay: "-1.5s" }}
           >
-            <Download className="h-5 w-5 text-brand-gold" />
+            <i className="fa-solid fa-download text-xl text-brand-gold" />
           </span>
           <span
             className="float-icon absolute left-[5%] top-[45%] hidden px-1 py-1 xl:block"
             style={{ "--rot": "4deg", animationDelay: "-3s" }}
           >
-            <ScrollText className="h-5 w-5 text-brand-gold" />
+            <i className="fa-solid fa-scroll text-xl text-brand-gold" />
           </span>
           <span
             className="float-icon absolute right-[6%] top-[52%] hidden px-1 py-1 xl:block"
             style={{ "--rot": "-9deg", animationDelay: "-5s" }}
           >
-            <Library className="h-5 w-5 text-brand-gold" />
+            <i className="fa-solid fa-book text-xl text-brand-gold" />
           </span>
         </div>
 
@@ -167,7 +154,8 @@ export default function Landing() {
                 onClick={() => navigate("/app")}
                 className="btn-primary !bg-brand-gold !text-brand-green-ink hover:!bg-brand-gold/90 sm:w-auto"
               >
-                Start generating assessments <ArrowRight className="h-4 w-4" />
+                Start generating assessments{" "}
+                <i className="fa-solid fa-arrow-right text-sm" />
               </button>
               <Link to="/login" className="btn-white sm:w-auto">
                 Sign in
@@ -181,22 +169,22 @@ export default function Landing() {
         </div>
 
         <div className="border-t border-white/10 bg-white/5">
-          <div className="container-page grid grid-cols-1 gap-3 py-6 text-center sm:grid-cols-2 lg:grid-cols-4 sm:gap-6">
+          <div className="container-page grid grid-cols-2 gap-x-3 gap-y-4 py-6 sm:grid-cols-2 sm:gap-x-6 lg:grid-cols-4">
             {[
               {
-                icon: GraduationCap,
+                fa: "fa-graduation-cap",
                 label: "Quiz · Exam · Exercise · Homework",
               },
-              { icon: CheckCircle2, label: "Answer key with explanations" },
-              { icon: FileCheck2, label: "Student paper + marking guide" },
-              { icon: ShieldCheck, label: "Private per-teacher library" },
+              { fa: "fa-circle-check", label: "Answer key with explanations" },
+              { fa: "fa-file-circle-check", label: "Student paper + marking guide" },
+              { fa: "fa-shield-halved", label: "Private per-teacher library" },
             ].map((s) => (
               <div
                 key={s.label}
-                className="flex flex-col items-center justify-center gap-1.5 text-emerald-100/80 sm:flex-row sm:gap-2"
+                className="flex items-center justify-center gap-2 px-2 text-center"
               >
-                <s.icon className="h-4 w-4 shrink-0 text-brand-gold" />
-                <span className="text-xs font-medium sm:text-[13px]">
+                <i className={`fa-solid ${s.fa} text-base text-brand-gold`} />
+                <span className="text-[11px] font-medium leading-tight text-emerald-100/80 sm:text-[13px]">
                   {s.label}
                 </span>
               </div>
@@ -220,13 +208,10 @@ export default function Landing() {
           {features.map((f) => (
             <div
               key={f.title}
-              className="group card card-hover relative overflow-hidden p-6 text-center"
+              className="group card card-hover relative overflow-hidden rounded-2xl p-6 text-center"
             >
-              <span className="absolute left-0 top-0 h-1 w-0 bg-gradient-to-r from-brand-gold to-brand-green-dark transition-all duration-300 group-hover:w-full" />
-              <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl text-brand-green-dark transition-colors duration-300 group-hover:text-brand-gold">
-                <f.icon className="h-6 w-6" />
-              </span>
-              <h3 className="mt-4 text-[15px] font-bold text-slate-900">
+              <i className={`fa-solid ${f.fa} text-3xl text-brand-green-dark transition-colors duration-300 group-hover:text-brand-gold`} />
+              <h3 className="mt-4 text-[15px] font-bold text-slate-900 transition-colors duration-300 group-hover:text-brand-green-deep">
                 {f.title}
               </h3>
               <p className="mt-1.5 text-[13px] leading-relaxed text-slate-500">
@@ -254,9 +239,7 @@ export default function Landing() {
                 <span className="font-hand absolute -top-8 left-5 text-6xl font-bold leading-none text-brand-gold drop-shadow-sm">
                   {s.n}
                 </span>
-                <span className="mt-4 flex h-11 w-11 items-center justify-center rounded-2xl text-brand-green-dark">
-                  <s.icon className="h-6 w-6" />
-                </span>
+                <i className={`fa-solid ${s.fa} mt-4 text-2xl text-brand-green-dark`} />
                 <h3 className="mt-3 text-[15px] font-bold text-slate-900">
                   {s.title}
                 </h3>
@@ -269,20 +252,20 @@ export default function Landing() {
                       key={d}
                       className="flex items-start gap-1.5 text-[12px] text-slate-600"
                     >
-                      <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-brand-green-dark" />
+                      <i className="fa-solid fa-circle-check mt-0.5 text-sm text-brand-green-dark" />
                       {d}
                     </li>
                   ))}
                 </ul>
                 {i < steps.length - 1 && (
-                  <ArrowRight className="absolute -right-5 top-1/2 hidden h-5 w-5 -translate-y-1/2 text-slate-300 sm:block" />
+                  <i className="fa-solid fa-arrow-right absolute -right-5 top-1/2 hidden -translate-y-1/2 text-xl text-slate-300 sm:block" />
                 )}
               </div>
             ))}
           </div>
           <div className="mt-12 text-center sm:mt-14">
             <button onClick={() => navigate("/app")} className="btn-primary">
-              <FileText className="h-4 w-4" /> Try it now
+              <i className="fa-solid fa-file-lines text-sm" /> Try it now
             </button>
           </div>
         </div>

@@ -48,6 +48,19 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
+  const register = useCallback(async ({ name, username, email, password }) => {
+    setLoading(true);
+    try {
+      const res = await api.post('/auth/register', { name, username, email, password });
+      localStorage.setItem('ai_token', res.data.token);
+      localStorage.setItem('ai_user', JSON.stringify(res.data.user));
+      setUser(res.data.user);
+      return res.data;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   const logout = useCallback(() => {
     localStorage.removeItem('ai_token');
     localStorage.removeItem('ai_user');
@@ -61,7 +74,7 @@ export const AuthProvider = ({ children }) => {
     } catch {}
   }, []);
 
-  const value = { user, loading, checking, login, logout, updateUser, isAdmin: user?.role === 'admin' || user?.role === 'leader' };
+  const value = { user, loading, checking, login, register, logout, updateUser, isAdmin: user?.role === 'admin' || user?.role === 'leader' };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

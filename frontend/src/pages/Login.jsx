@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Lock, User, LogIn, Eye, EyeOff, ShieldCheck, GraduationCap, ArrowLeft } from 'lucide-react';
+import { Lock, User, LogIn, Eye, EyeOff, ShieldCheck, GraduationCap, ArrowLeft, UserPlus, Mail } from 'lucide-react';
 import Spinner from '../components/Spinner';
 import BrandLogo from '../components/BrandLogo';
 import { useAuth } from '../context/AuthContext';
@@ -13,12 +13,18 @@ const roleHints = [
 ];
 
 export default function Login() {
-  const { login, loading } = useAuth();
+  const { login, register, loading } = useAuth();
   const toast = useToast();
   const navigate = useNavigate();
+  const [mode, setMode] = useState('signin');
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
+  const [name, setName] = useState('');
+  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
 
   useEffect(() => {
     try {
@@ -41,6 +47,21 @@ export default function Login() {
     }
   };
 
+  const handleSignUp = async (e) => {
+    e.preventDefault();
+    if (newPassword !== confirmPassword) {
+      toast.error('Passwords do not match.');
+      return;
+    }
+    try {
+      const res = await register({ name, username, email, password: newPassword });
+      toast.success(`Welcome, ${res.user.name || res.user.role}! Your account is ready.`);
+      navigate(roleHome(res.user.role));
+    } catch (err) {
+      toast.error(errorMessage(err, 'Sign up failed. Please try again.'));
+    }
+  };
+
   return (
     <section className="relative flex min-h-[calc(100vh-80px)] items-center justify-center overflow-hidden bg-brand-green-deep px-4 py-10">
       <div className="pointer-events-none absolute -right-20 -top-24 h-72 w-72 rounded-full bg-brand-green-dark/50 blur-3xl" />
@@ -56,7 +77,7 @@ export default function Login() {
               <BrandLogo size={56} className="mb-4" />
               <h1 className="font-display text-xl font-bold text-white">DuFast EduAi</h1>
               <p className="mt-0.5 text-[13px] text-emerald-100/80">
-                Turn your course notes into exam-ready papers in seconds.
+                Turn your course notes into Quiz-test-exam-Homework-ready papers in seconds.
               </p>
             </div>
             <div className="relative space-y-2">
@@ -82,65 +103,185 @@ export default function Login() {
               <p className="mt-0.5 text-sm text-slate-500">Staff sign in</p>
             </div>
 
-            <h2 className="hidden font-display text-xl font-bold lg:block">Welcome back</h2>
-            <p className="mt-0.5 hidden text-sm text-slate-500 lg:block">Sign in to generate assessments.</p>
-
-            <form onSubmit={handleSubmit} className="mt-4 space-y-3">
-              <div>
-                <label className="label-field">Username or Email</label>
-                <div className="relative">
-                  <User className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                  <input
-                    value={identifier}
-                    onChange={(e) => setIdentifier(e.target.value)}
-                    required
-                    autoFocus
-                    autoComplete="username"
-                    placeholder="teacher"
-                    className="input-field pl-10"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="label-field">Password</label>
-                <div className="relative">
-                  <Lock className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                  <input
-                    type={showPw ? 'text' : 'password'}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    autoComplete="current-password"
-                    placeholder="••••••••"
-                    className="input-field pl-10 pr-10"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPw((v) => !v)}
-                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 transition-colors hover:text-slate-600"
-                    aria-label="Toggle password visibility"
-                  >
-                    {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                </div>
-              </div>
-
-              <button type="submit" disabled={loading} className="btn-primary w-full disabled:opacity-60">
-                {loading ? <Spinner size="sm" light /> : <LogIn className="h-4 w-4" />}
-                {loading ? 'Signing in...' : 'Sign In'}
-              </button>
-            </form>
-
-            <div className="my-5 flex items-center gap-3">
-              <span className="h-px flex-1 bg-slate-200" />
-              <span className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">Staff access</span>
-              <span className="h-px flex-1 bg-slate-200" />
+            <div key={mode} className={mode === 'signin' ? 'form-enter-left' : 'form-enter-right'}>
+              <h2 className="hidden font-display text-xl font-bold lg:block">
+                {mode === 'signin' ? 'Welcome back' : 'Create your account'}
+              </h2>
+              <p className="mt-0.5 hidden text-sm text-slate-500 lg:block">
+                {mode === 'signin' ? 'Sign in to generate assessments.' : 'Sign up to start generating assessments.'}
+              </p>
             </div>
 
-            <p className="rounded-lg bg-brand-green-light px-4 py-2.5 text-center text-xs text-slate-600">
-              Demo teacher account: <span className="font-semibold">teacher / teacher123</span>
-            </p>
+            <div className="mt-4 mb-4 grid grid-cols-2 gap-1 rounded-xl bg-brand-green-light/60 p-1">
+              {[
+                { key: 'signin', label: 'Sign In' },
+                { key: 'signup', label: 'Create Account' },
+              ].map((t) => (
+                <button
+                  key={t.key}
+                  type="button"
+                  onClick={() => setMode(t.key)}
+                  className={`rounded-lg px-3 py-2 text-xs font-bold transition ${
+                    mode === t.key ? 'bg-white text-brand-green-dark shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                  }`}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+
+            {mode === 'signin' ? (
+              <form key="signin-form" onSubmit={handleSubmit} className="form-enter-left space-y-3">
+                <div>
+                  <label className="label-field">Username or Email</label>
+                  <div className="relative">
+                    <User className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <input
+                      value={identifier}
+                      onChange={(e) => setIdentifier(e.target.value)}
+                      required
+                      autoFocus
+                      autoComplete="username"
+                      placeholder="teacher"
+                      className="input-field pl-10"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="label-field">Password</label>
+                  <div className="relative">
+                    <Lock className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type={showPw ? 'text' : 'password'}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                      autoComplete="current-password"
+                      placeholder="••••••••"
+                      className="input-field pl-10 pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPw((v) => !v)}
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 transition-colors hover:text-slate-600"
+                      aria-label="Toggle password visibility"
+                    >
+                      {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                <button type="submit" disabled={loading} className="btn-primary w-full disabled:opacity-60">
+                  {loading ? <Spinner size="sm" light /> : <LogIn className="h-4 w-4" />}
+                  {loading ? 'Signing in...' : 'Sign In'}
+                </button>
+              </form>
+            ) : (
+              <form key="signup-form" onSubmit={handleSignUp} className="form-enter-right space-y-3">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <label className="label-field">Full name</label>
+                    <div className="relative">
+                      <User className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                      <input
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        required
+                        autoFocus
+                        autoComplete="name"
+                        placeholder="Full name"
+                        className="input-field pl-10"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="label-field">Username</label>
+                    <input
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      required
+                      autoComplete="username"
+                      placeholder="Username"
+                      className="input-field"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="label-field">Email</label>
+                  <div className="relative">
+                    <Mail className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                      autoComplete="email"
+                      placeholder="you@school.ac.rw"
+                      className="input-field pl-10"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <label className="label-field">Password</label>
+                    <div className="relative">
+                      <Lock className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                      <input
+                        type={showPw ? 'text' : 'password'}
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        required
+                        minLength={6}
+                        autoComplete="new-password"
+                        placeholder="At least 6 characters"
+                        className="input-field pl-10 pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPw((v) => !v)}
+                        className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 transition-colors hover:text-slate-600"
+                        aria-label="Toggle password visibility"
+                      >
+                        {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="label-field">Confirm password</label>
+                    <input
+                      type={showPw ? 'text' : 'password'}
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      required
+                      autoComplete="new-password"
+                      placeholder="Repeat password"
+                      className="input-field"
+                    />
+                  </div>
+                </div>
+
+                <button type="submit" disabled={loading} className="btn-primary w-full disabled:opacity-60">
+                  {loading ? <Spinner size="sm" light /> : <UserPlus className="h-4 w-4" />}
+                  {loading ? 'Creating account...' : 'Create Account'}
+                </button>
+                <p className="text-center text-[11px] text-slate-400">
+                  Creates a Teacher account. Leaders and admins are set up by the administrator.
+                </p>
+              </form>
+            )}
+
+            {mode === 'signin' && (
+              <div className="my-5 flex items-center gap-3">
+                <span className="h-px flex-1 bg-slate-200" />
+                <span className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">Staff access</span>
+                <span className="h-px flex-1 bg-slate-200" />
+              </div>
+            )}
 
             <Link to="/" className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-brand-green-dark hover:underline">
               <ArrowLeft className="h-4 w-4" /> Back to home

@@ -10,6 +10,7 @@ import {
   Eye,
   X,
   ChevronDown,
+  ChevronRight,
   CheckCircle2,
   AlertCircle,
   RefreshCw,
@@ -153,23 +154,38 @@ function sourceBadge(src) {
   return <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${m.cls}`}>{m.label}</span>;
 }
 
+// Accept both shapes the API may return — flat strings or { name, subtopics }
+// objects — and always produce { name, subtopics } for the topic tree.
+function normalizeTopicItem(t) {
+  if (t && typeof t === 'object' && t.name) {
+    return { name: String(t.name), subtopics: Array.isArray(t.subtopics) ? t.subtopics.map((s) => String(s)) : [] };
+  }
+  return { name: String(t || '').trim(), subtopics: [] };
+}
+
 export default function AIExam() {
   const { data: classesData } = useFetch('/staff/classes');
   const classes = classesData || [];
 
-  const LEVEL_ORDER = ['Nursery', 'Primary', 'Ordinary Level', 'Advanced Level'];
-  const groupedClasses = LEVEL_ORDER.map((level) => ({
+  const LEVEL_ORDER = ['Nursery', 'Primary', 'Secondary', 'University'];
+  const [selectedLevel, setSelectedLevel] = useState('');
+  const levelOptions = LEVEL_ORDER.map((level) => ({
     level,
     items: classes.filter((c) => c.level === level),
   })).filter((g) => g.items.length > 0);
+  const filteredClasses = selectedLevel
+    ? levelOptions.find((g) => g.level === selectedLevel)?.items || []
+    : classes;
 
   const [doc, setDoc] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState(null);
+  const [dragging, setDragging] = useState(false);
 
   const [topics, setTopics] = useState([]);
   const [topicsLoading, setTopicsLoading] = useState(false);
   const [topicsError, setTopicsError] = useState(null);
+  const [expandedTopics, setExpandedTopics] = useState([]);
   const [selectedTopics, setSelectedTopics] = useState([]);
 
   const [form, setForm] = useState({
@@ -206,7 +222,7 @@ export default function AIExam() {
     setTopicsError(null);
     try {
       const res = await api.post('/assessments/topics', { documentId });
-      setTopics(res.data.topics || []);
+      setTopics((res.data.topics || []).map(normalizeTopicItem));
     } catch (err) {
       setTopicsError(errorMessage(err, 'Could not find topics'));
     } finally {
@@ -214,8 +230,38 @@ export default function AIExam() {
     }
   }, []);
 
-  const toggleTopic = (t) =>
-    setSelectedTopics((sel) => (sel.includes(t) ? sel.filter((x) => x !== t) : [...sel, t]));
+  const toggleTopic = (topic) => {
+    setSelectedTopics((sel) => {
+      if (sel.some((s) => s.name === topic.name)) return sel.filter((s) => s.name !== topic.name);
+      return [...sel, { name: topic.name, limit: 0, subtopics: [] }];
+    });
+  };
+
+  const toggleSubtopic = (topicName, sub) => {
+    setSelectedTopics((sel) => {
+      const existing = sel.find((s) => s.name === topicName);
+      if (!existing) return [...sel, { name: topicName, limit: 0, subtopics: [sub] }];
+      const subtopics = existing.subtopics.includes(sub)
+        ? existing.subtopics.filter((x) => x !== sub)
+        : [...existing.subtopics, sub];
+      if (subtopics.length === 0) return sel.filter((s) => s.name !== topicName);
+      return sel.map((s) => (s.name === topicName ? { ...s, subtopics } : s));
+    });
+  };
+
+  const toggleExpand = (name) => {
+    setExpandedTopics((exp) => (exp.includes(name) ? exp.filter((x) => x !== name) : [...exp, name]));
+  };
+
+  const setTopicLimit = (name, raw) => {
+    const v = parseInt(raw, 10);
+    const limit = Number.isNaN(v) || v < 0 ? 0 : Math.min(form.count, v);
+    setSelectedTopics((sel) => {
+      const existing = sel.find((s) => s.name === name);
+      if (!existing) return [...sel, { name, limit, subtopics: [] }];
+      return sel.map((s) => (s.name === name ? { ...s, limit } : s));
+    });
+  };
 
   const handleFile = async (e) => {
     const file = e.target.files?.[0];
@@ -231,16 +277,26 @@ export default function AIExam() {
       setDoc(res.data.document);
       setResult(null);
       setSelectedTopics([]);
+      setExpandedTopics([]);
       fetchTopics(res.data.document.id);
     } catch (err) {
       setUploadError(errorMessage(err, 'Upload failed'));
       setDoc(null);
       setTopics([]);
       setSelectedTopics([]);
+      setExpandedTopics([]);
     } finally {
       setUploading(false);
       e.target.value = '';
     }
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setDragging(false);
+    if (uploading) return;
+    const files = e.dataTransfer?.files;
+    if (files?.length) handleFile({ target: { files } });
   };
 
   const handleGenerate = async () => {
@@ -464,8 +520,8 @@ export default function AIExam() {
         {/* Left column: controls (sticky so settings stay visible while the right side scrolls) */}
         <div className="space-y-4 lg:sticky lg:top-20 lg:max-h-[calc(100vh-6.5rem)] lg:overflow-y-auto lg:scroll-smooth lg:pr-1">
           {/* Step 1 */}
-          <div className="card p-4 sm:p-5">
-            <div className="mb-3 flex items-center gap-2.5">
+          <div className="card p-3.5 sm:p-4">
+            <div className="mb-2.5 flex items-center gap-2.5">
               <span className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-brand-green-dark to-brand-green text-xs font-bold text-white shadow-sm">
                 1
               </span>
@@ -479,14 +535,28 @@ export default function AIExam() {
               )}
             </div>
 
-            <label className="group flex cursor-pointer flex-col items-center justify-center gap-2.5 rounded-2xl border-2 border-dashed border-brand-green-soft bg-gradient-to-b from-brand-green-light/60 to-white px-4 py-7 text-center transition hover:border-brand-green-dark hover:from-brand-green-light hover:shadow-md">
-              <span className="flex h-12 w-12 items-center justify-center rounded-2xl text-brand-green-dark transition group-hover:scale-105">
-                {uploading ? <Spinner size="sm" /> : <Upload className="h-6 w-6" />}
+            <label
+              onDragOver={(e) => {
+                e.preventDefault();
+                if (!uploading) setDragging(true);
+              }}
+              onDragLeave={() => setDragging(false)}
+              onDrop={handleDrop}
+              className={`group flex cursor-pointer items-center justify-center gap-2.5 rounded-xl border-2 border-dashed px-3 py-2.5 text-center transition ${
+                dragging
+                  ? 'border-brand-green-dark bg-brand-green-light shadow-sm'
+                  : 'border-brand-green-soft bg-gradient-to-b from-brand-green-light/60 to-white hover:border-brand-green-dark hover:from-brand-green-light'
+              }`}
+            >
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-brand-green-dark transition group-hover:scale-105">
+                {uploading ? <Spinner size="sm" /> : <Upload className="h-4 w-4" />}
               </span>
-              <span className="text-xs font-semibold text-slate-600">
-                {uploading ? 'Reading document...' : 'Choose a PDF, DOCX or TXT file'}
+              <span className="text-[11px] font-semibold leading-tight text-slate-600">
+                {uploading ? 'Reading document...' : 'Drag your file here or click to choose'}
+                <span className="mt-0.5 block text-[10px] font-medium text-slate-400">
+                  PDF, DOCX or TXT · max 30 MB · text must be extractable
+                </span>
               </span>
-              <span className="text-[10px] text-slate-400">Max 30 MB · text must be extractable</span>
               <input type="file" accept=".pdf,.docx,.txt" className="sr-only" onChange={handleFile} disabled={uploading} />
             </label>
 
@@ -592,24 +662,48 @@ export default function AIExam() {
               </div>
 
               <div>
-                <label className="label-field">Class (optional)</label>
+                <label className="label-field">Level</label>
                 <div className="relative">
                   <ChevronDown className="pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                   <select
-                    value={form.className}
-                    onChange={(e) => setForm((f) => ({ ...f, className: e.target.value }))}
+                    value={selectedLevel}
+                    onChange={(e) => {
+                      const level = e.target.value;
+                      setSelectedLevel(level);
+                      const inLevel = level
+                        ? levelOptions.find((g) => g.level === level)?.items.some((c) => c.name === form.className)
+                        : classes.some((c) => c.name === form.className);
+                      if (!inLevel) setForm((f) => ({ ...f, className: '' }));
+                    }}
                     className="input-field appearance-none pr-10"
                   >
-                    <option value="">Any / all classes</option>
-                    {groupedClasses.map((g) => (
-                      <optgroup key={g.level} label={g.level}>
-                        {g.items.map((c) => (
-                          <option key={c._id} value={c.name}>{c.name}</option>
-                        ))}
-                      </optgroup>
+                    <option value="">All levels</option>
+                    {levelOptions.map((g) => (
+                      <option key={g.level} value={g.level}>{g.level}</option>
                     ))}
                   </select>
                 </div>
+              </div>
+
+              <div>
+                <label className="label-field">Class (optional)</label>
+                <input
+                  list="class-suggestions"
+                  value={form.className}
+                  onChange={(e) => setForm((f) => ({ ...f, className: e.target.value }))}
+                  placeholder={selectedLevel ? `e.g. S2, P5, Year 3 — or type your own` : 'e.g. S2, P5, Year 3 — or type your own'}
+                  className="input-field"
+                />
+                <datalist id="class-suggestions">
+                  {filteredClasses.map((c) => (
+                    <option key={c._id} value={c.name} />
+                  ))}
+                </datalist>
+                <p className="mt-1 text-[10px] text-slate-400">
+                  {selectedLevel
+                    ? `${filteredClasses.length} class${filteredClasses.length === 1 ? '' : 'es'} in ${selectedLevel} — pick one or type a short name`
+                    : 'Pick a level to see its classes, or type any class name'}
+                </p>
               </div>
 
               <div>
@@ -654,29 +748,90 @@ export default function AIExam() {
                       >
                         <BookOpen className="h-3 w-3" /> Whole document
                       </button>
-                      {topics.map((t) => {
-                        const active = selectedTopics.includes(t);
+                    </div>
+                    <ul className="mt-2 space-y-1.5">
+                      {topics.map((topic) => {
+                        const selected = selectedTopics.find((s) => s.name === topic.name);
+                        const expanded = expandedTopics.includes(topic.name);
+                        const subs = topic.subtopics || [];
                         return (
-                          <button
-                            key={t}
-                            type="button"
-                            onClick={() => toggleTopic(t)}
-                            className={`inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-[11px] font-semibold transition ${
-                              active
-                                ? 'border-brand-green-dark bg-brand-green-dark text-white shadow-sm'
-                                : 'border-slate-200 bg-white text-slate-500 hover:border-brand-green-soft hover:text-brand-green-dark'
+                          <li
+                            key={topic.name}
+                            className={`rounded-xl border transition ${
+                              selected
+                                ? 'border-brand-green-soft bg-brand-green-light/40'
+                                : 'border-slate-100 bg-slate-50/60'
                             }`}
                           >
-                            {active && <CheckCircle2 className="h-3 w-3" />}
-                            {t}
-                          </button>
+                            <div className="flex flex-wrap items-center gap-2 px-2.5 py-2">
+                              <button
+                                type="button"
+                                onClick={() => toggleTopic(topic)}
+                                className={`inline-flex items-center gap-1.5 rounded-lg border px-2 py-1 text-[11px] font-semibold transition ${
+                                  selected
+                                    ? 'border-brand-green-dark bg-brand-green-dark text-white shadow-sm'
+                                    : 'border-slate-200 bg-white text-slate-600 hover:border-brand-green-soft hover:text-brand-green-dark'
+                                }`}
+                              >
+                                {selected && <CheckCircle2 className="h-3 w-3" />}
+                                <span className="max-w-[180px] truncate">{topic.name}</span>
+                              </button>
+                              {subs.length > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={() => toggleExpand(topic.name)}
+                                  className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-slate-400 transition hover:text-brand-green-dark"
+                                >
+                                  {expanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                                  {subs.length} subtopic{subs.length > 1 ? 's' : ''}
+                                </button>
+                              )}
+                              {selected && (
+                                <div className="ml-auto flex items-center gap-1.5">
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    max={form.count}
+                                    value={selected.limit > 0 ? selected.limit : ''}
+                                    onChange={(e) => setTopicLimit(topic.name, e.target.value)}
+                                    placeholder="all"
+                                    title="Max questions for this topic (blank = the whole topic)"
+                                    className="w-14 rounded-lg border border-slate-200 bg-white px-1.5 py-1 text-center text-[11px] font-semibold text-slate-700 focus:border-brand-green-dark focus:outline-none"
+                                  />
+                                  <span className="text-[10px] text-slate-400">max qns</span>
+                                </div>
+                              )}
+                            </div>
+                            {expanded && subs.length > 0 && (
+                              <div className="flex flex-wrap gap-1 border-t border-slate-100 bg-white px-2.5 py-2">
+                                {subs.map((sub) => {
+                                  const subActive = (selected?.subtopics || []).includes(sub);
+                                  return (
+                                    <button
+                                      key={sub}
+                                      type="button"
+                                      onClick={() => toggleSubtopic(topic.name, sub)}
+                                      className={`inline-flex items-center gap-1 rounded-lg border px-2 py-0.5 text-[10px] font-semibold transition ${
+                                        subActive
+                                          ? 'border-brand-green-dark bg-brand-green-soft text-brand-green-dark'
+                                          : 'border-slate-200 bg-white text-slate-400 hover:border-brand-green-soft hover:text-brand-green-dark'
+                                      }`}
+                                    >
+                                      {subActive && <CheckCircle2 className="h-2.5 w-2.5" />}
+                                      <span className="max-w-[150px] truncate">{sub}</span>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </li>
                         );
                       })}
-                    </div>
+                    </ul>
                     <p className="mt-1.5 text-[10px] text-slate-400">
                       {selectedTopics.length === 0
-                        ? 'All topics/chapters found in the document — select one or more to focus the questions, or keep "Whole document".'
-                        : `${selectedTopics.length} topic${selectedTopics.length > 1 ? 's' : ''} selected — questions will focus only on them.`}
+                        ? 'Select one or more topics to focus the questions, or keep "Whole document". Click a topic to open its subtopics.'
+                        : `${selectedTopics.length} topic${selectedTopics.length > 1 ? 's' : ''} selected — open a topic to choose its subtopics, or set a max number of questions per topic (blank = the whole topic).`}
                     </p>
                   </div>
                 )}

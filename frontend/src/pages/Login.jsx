@@ -55,13 +55,8 @@ export default function Login() {
             <div className="relative">
               <BrandLogo size={56} className="mb-4" />
               <h1 className="font-display text-xl font-bold text-white">DuFast EduAi</h1>
-              <p className="mt-0.5 text-[13px] text-emerald-100/80">Turn your course notes into exam-ready papers</p>
-              <p className="mt-1 text-[10px] font-semibold uppercase tracking-widest text-brand-gold">
-                Quizzes · Exams · Exercises · Homework
-              </p>
-              <p className="mt-3 text-[13px] leading-relaxed text-emerald-100/70">
-                Turn any course document into an exam-ready paper with an answer key and explanations in seconds.
-                Download as a student paper, marking guide or CSV.
+              <p className="mt-0.5 text-[13px] text-emerald-100/80">
+                Turn your course notes into exam-ready papers in seconds.
               </p>
             </div>
             <div className="relative space-y-2">
@@ -85,9 +80,6 @@ export default function Login() {
               <BrandLogo size={48} className="mb-2.5" />
               <h1 className="font-display text-lg font-bold">DuFast EduAi</h1>
               <p className="mt-0.5 text-sm text-slate-500">Staff sign in</p>
-              <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-widest text-brand-green-dark">
-                Quizzes · Exams · Exercises · Homework
-              </p>
             </div>
 
             <h2 className="hidden font-display text-xl font-bold lg:block">Welcome back</h2>

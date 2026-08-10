@@ -68,7 +68,7 @@ router.post('/generate', protect, staffOnly, async (req, res) => {
       className,
       title,
       difficulty,
-      topics: Array.isArray(topics) ? topics.filter((t) => String(t).trim()) : [],
+      topics: Array.isArray(topics) ? topics : [],
     });
 
     res.json({ title: result.title, source: result.source, questions: result.questions });

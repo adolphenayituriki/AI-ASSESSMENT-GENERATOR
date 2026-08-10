@@ -24,7 +24,7 @@ const developer = {
     'Online Marketing',
   ],
   projects: [
-    { name: 'CS HUB', text: 'Computer support & ICT skills website — digital skills, computer repair and software installation across Rwanda.' },
+    { name: 'CS HUB', text: 'Computer support & ICT skills website. Digital skills, computer repair and software installation across Rwanda.' },
     { name: 'Umuganda Tracking System', text: 'Full-stack attendance & fines tracking system built with HTML, JavaScript, PHP and MySQL.' },
     { name: 'MindSpace', text: 'Mental health, relationship and life-transition support that is anonymous and culturally grounded.' },
     { name: 'Kaina Fresh LTD', text: 'E-commerce website that lets customers browse products and place orders.' },

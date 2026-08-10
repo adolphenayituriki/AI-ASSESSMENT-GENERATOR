@@ -61,33 +61,80 @@ const QUESTION_SCHEMA_HINT = `{
   ]
 }`;
 
-// When specific topics are selected, return the portions of the document that
-// cover those topics (from each topic heading up to the next unit heading).
-// For each topic the longest matching segment is kept so the table-of-contents
-// stub is avoided in favour of the real unit content.
-function selectTopicText(text, topics, limit = 50000) {
-  const sel = Array.isArray(topics) ? topics.map((t) => String(t).trim()).filter(Boolean) : [];
-  if (sel.length === 0) return text.slice(0, limit);
+const SUBHEADING = /\n\s*\d{1,2}(\.\d{1,3}){1,2}\s*\p{Lu}/u;
+
+function sliceFromEndOfLine(text, idx) {
+  const lineEnd = text.indexOf('\n', idx);
+  return lineEnd === -1 ? text.length : lineEnd + 1;
+}
+
+// The longest block of text belonging to one topic: from the topic heading
+// (or first mention) up to the next UNIT/CHAPTER/... heading.
+function topicSegment(text, topicName) {
   const lower = text.toLowerCase();
+  const name = topicName.toLowerCase();
   const heading = /\n\s*(UNIT|CHAPTER|LESSON|TOPIC|MODULE|PART)\b\s*[\dIVXLC]/i;
+  let best = '';
+  let from = 0;
+  for (;;) {
+    const idx = lower.indexOf(name, from);
+    if (idx === -1) break;
+    const segStart = sliceFromEndOfLine(lower, idx);
+    const after = text.slice(segStart);
+    const m = heading.exec(after);
+    const segEnd = m ? segStart + m.index : text.length;
+    const chunk = text.slice(segStart, segEnd).trim();
+    if (chunk.length > best.length) best = chunk;
+    from = idx + 1;
+  }
+  return best;
+}
+
+// The longest block of text belonging to one subtopic inside a topic segment:
+// from the subtopic heading up to the next numbered sub-heading.
+function subtopicText(segment, subtopic) {
+  const lower = segment.toLowerCase();
+  const name = subtopic.toLowerCase();
+  let best = '';
+  let from = 0;
+  for (;;) {
+    const idx = lower.indexOf(name, from);
+    if (idx === -1) break;
+    const segStart = sliceFromEndOfLine(lower, idx);
+    const after = segment.slice(segStart);
+    const m = SUBHEADING.exec(after);
+    const segEnd = m ? segStart + m.index : segment.length;
+    const chunk = segment.slice(segStart, segEnd).trim();
+    if (chunk.length > best.length) best = chunk;
+    from = idx + 1;
+  }
+  return best;
+}
+
+// When topics are selected, return the portions of the document that cover
+// them. Each topic may carry an optional list of subtopics; when present, only
+// the matching sub-sections are included. For each topic the longest matching
+// segment is kept so the table-of-contents stub is avoided in favour of the
+// real unit content.
+function selectTopicText(text, topics, limit = 50000) {
+  const sel = normalizeTopics(topics);
+  if (sel.length === 0) return text.slice(0, limit);
   const parts = [];
   for (const t of sel) {
-    const tl = t.toLowerCase();
-    let best = '';
-    let from = 0;
-    for (;;) {
-      const idx = lower.indexOf(tl, from);
-      if (idx === -1) break;
-      const lineEnd = lower.indexOf('\n', idx);
-      const segStart = lineEnd === -1 ? text.length : lineEnd + 1;
-      const after = text.slice(segStart);
-      const m = heading.exec(after);
-      const segEnd = m ? segStart + m.index : text.length;
-      const chunk = text.slice(segStart, segEnd).trim();
-      if (chunk.length > best.length) best = chunk;
-      from = idx + 1;
+    const seg = topicSegment(text, t.name);
+    if (!seg) continue;
+    if (t.subtopics.length) {
+      let combined = '';
+      for (const sub of t.subtopics) {
+        const subSeg = subtopicText(seg, sub);
+        if (subSeg) combined += (combined ? '\n\n' : '') + subSeg;
+      }
+      if (combined) {
+        parts.push(combined);
+        continue;
+      }
     }
-    if (best) parts.push(best);
+    parts.push(seg);
   }
   if (parts.length === 0) return text.slice(0, limit);
   let out = parts.join('\n\n');
@@ -95,12 +142,74 @@ function selectTopicText(text, topics, limit = 50000) {
   return out;
 }
 
+// Accept topics in either shape — an array of strings ("UNIT 1: CELLS") or an
+// array of { name, limit, subtopics } objects — and normalise to the object
+// shape. "limit" is the maximum number of questions for that topic (0 = the
+// whole topic, no cap); "subtopics" restricts the topic to chosen sub-sections.
+function normalizeTopics(topics) {
+  if (!Array.isArray(topics)) return [];
+  const seen = new Set();
+  const out = [];
+  for (const t of topics) {
+    if (!t) continue;
+    const isObj = typeof t === 'object';
+    const name = String(isObj ? t.topic || t.name : t).trim();
+    if (!name) continue;
+    const key = normalizeTopicKey(name);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const limit = isObj ? Math.max(0, Math.min(30, parseInt(t.limit, 10) || 0)) : 0;
+    const subtopics = (isObj && Array.isArray(t.subtopics) ? t.subtopics : [])
+      .map((s) => String(s).trim())
+      .filter((s) => s);
+    out.push({ name, limit, subtopics });
+  }
+  return out;
+}
+
+// Tell the model how to distribute the questions across the selected topics.
+// Topics with a limit get exactly that many questions; topics without a limit
+// are covered as whole topics; the remainder (if any) comes from the rest of
+// the document.
+function buildFocusNote(topics, count) {
+  const sel = normalizeTopics(topics);
+  if (sel.length === 0) {
+    return '\nFocus: Cover the whole document evenly across its topics.\n';
+  }
+  const lines = sel.map((t) => {
+    const subNote = t.subtopics.length ? ` (subtopics: ${t.subtopics.join('; ')})` : '';
+    return t.limit > 0
+      ? `- ${t.name} — write exactly ${t.limit} question${t.limit === 1 ? '' : 's'}${subNote}.`
+      : `- ${t.name} — the whole topic; write as many questions as it deserves${subNote}.`;
+  });
+  const limited = sel.some((t) => t.limit > 0);
+  let note = `\nQuestion distribution (the total must still be ${count} questions):\n${lines.join('\n')}`;
+  note += limited
+    ? `\nIf the per-topic limits sum to less than ${count}, write the remaining questions across the whole document.\n`
+    : '\nWrite questions ONLY about the topics listed above; do not go beyond them.\n';
+  return note;
+}
+
+const VISUAL_SUBJECTS = ['geography', 'biology', 'physics', 'chemistry', 'science', 'agriculture', 'social studies', 'history', 'expressive arts'];
+const GRAPH_SUBJECTS = ['geography', 'mathematics', 'math', 'economics', 'physics', 'biology', 'statistics', 'computer science'];
+
+// Subjects with a visual or data component should carry visual questions; for
+// every other subject the AI still adds one when a question is genuinely
+// clearer with a drawing or a graph. The AI chooses the BEST format per
+// question (diagram draw-box or labelled graph axes).
+function buildVisualNote(subject, count) {
+  const s = String(subject || '').toLowerCase();
+  const needsVisual =
+    VISUAL_SUBJECTS.some((k) => s.includes(k)) || GRAPH_SUBJECTS.some((k) => s.includes(k));
+  const required = needsVisual
+    ? `\nVisual questions (REQUIRED for a ${subject || 'visual'} assessment): this paper MUST include at least 1 visual question.`
+    : '\nVisual questions: if any question in this paper is genuinely clearer with a visual (a drawing or a graph), include it.';
+  return `${required} For each visual question, choose the format that best tests the content — "diagram": true for anything the student must draw and label (structure, cross-section, map, flow chart, timeline, experimental set-up, circuit, cycle, ecosystem), or "graph": true for anything the student must plot on labelled axes (line, bar, histogram, curve). Set the flag ONLY on those questions (never both), keep them to a sensible number for ${count} questions (1-2 unless the paper is long), and give them marks and an "answer" describing what the drawing/graph must show.\n`;
+}
+
 function buildPrompt({ text, type, count, subject, className, title, difficulty, topics }) {
   const typeLabel = TYPES[type] || TYPES.quiz;
-  const topicsNote =
-    Array.isArray(topics) && topics.length > 0
-      ? `\nFocus: Write questions ONLY about these selected topics: ${topics.join('; ')}. Do not go beyond them.\n`
-      : '\nFocus: Cover the whole document.\n';
+  const topicsNote = buildFocusNote(topics, count);
 
   const difficultyNote =
     difficulty && difficulty !== 'Auto'
@@ -114,6 +223,8 @@ function buildPrompt({ text, type, count, subject, className, title, difficulty,
       : '';
 
   const marksNote = `\nMarks allocation: Give EVERY question a "marks" value (points) using your own judgement of the question's difficulty and length — for example 1 mark for a simple multiple-choice question, 2-3 marks for a short-answer question, 4-6 marks for a longer structured, diagram or graph question. Marks do NOT have to be equal across questions.\n`;
+
+  const visualNote = buildVisualNote(subject, count);
 
   return `You are an experienced teacher and national examiner in Rwanda preparing students for school tests and the Rwandan national examinations.
 
@@ -142,15 +253,13 @@ Format by type:
 - exercise and homework: mostly short-answer and structured questions with an "answer" field.
 - Every question needs a short "explanation" for the teacher's answer key.
 
-Diagram questions:
-- For subjects like Geography, Biology, Physics and Chemistry, include 1 or 2 short-answer "draw and label" questions where a diagram is genuinely useful, e.g. "Draw and label a diagram of the internal structure of the earth", "Draw and label the water cycle", "Draw and label the layers of the atmosphere".
-- Set "diagram": true ONLY on those questions. Diagram questions MUST NOT have options, and their "answer" field should describe what the labelled diagram must show.
-
-Graph questions:
-- For subjects that involve data or statistics (Geography statistical methods, Mathematics, Economics, Physics, Biology), include 1 short-answer question where the student must draw a graph on the printed axes, e.g. "Using the axes provided, draw a line graph to show the relationship between temperature and rainfall", "Using the axes provided, draw a simple bar graph to show the population growth".
-- Set "graph": true ONLY on those questions. Graph questions MUST NOT have options. Provide short "graphX" and "graphY" axis labels (e.g. "Months" and "Rainfall (mm)") so the axes can be printed with labels.
-- A question should use either "diagram": true OR "graph": true, never both.
-
+Visual questions (choose the BEST visual format for each question):
+- Whenever a question is genuinely clearer with a visual, mark it with the right flag so the PDF prints the correct drawing area:
+  * "diagram": true — anything the student must draw and label (biological structure, cross-section, a map sketch, a flow chart, a timeline, an experimental set-up, a circuit, the water cycle, an ecosystem, etc.). The PDF prints an empty draw box.
+  * "graph": true — anything the student must plot on axes (line, bar, histogram, polygon, curve). The PDF prints labelled axes from the "graphX" and "graphY" labels.
+- Decide per question which visual best tests the content — do NOT force diagrams or graphs where a plain question is better, and do not use a drawing when the content clearly needs a graph (or vice versa).
+- Visual questions MUST NOT have options. Set "diagram": true OR "graph": true (never both). Their "answer" field must describe what the labelled drawing/graph must show, and "graphX"/"graphY" are required when "graph": true.
+${visualNote}
 ${difficultyNote}${marksNote}
 ${topicsNote}
 Respond with ONLY valid JSON (no markdown fences), using this exact schema:
@@ -290,23 +399,24 @@ function normalizeQuestion(q) {
 }
 
 function buildTopicsPrompt(text) {
-  return `Read the course notes below and list the main topics or chapters covered in the document, like a table of contents for the subject.
+  return `Read the course notes below and list ALL the topics or chapters covered in the document, like a table of contents for the subject.
 
 Return ONLY valid JSON (no markdown fences), using this exact schema:
-{"topics": ["Topic 1", "Topic 2", "..."]}
+{"topics": [{"topic": "UNIT 1: CELLS", "subtopics": ["1.1 Cell structure", "1.2 Cell division"]}]}
 
 Guidelines:
-- List ALL the topics or chapters covered in the document — every unit, chapter, lesson, module or main subject area you can find. Do not stop at a small number; the full list helps the teacher choose which topics to generate questions on.
-- Only return the exact unit/chapter/lesson TITLES (e.g. "UNIT 3: CELLS"). Never return sentences, paragraphs, questions or descriptions — titles only.
+- List ALL the topics or chapters covered in the document — every unit, chapter, lesson, module, section or theme you can find. Do not stop at a small number; the full list helps the teacher choose what to test.
+- For EACH topic, also list its SUBTOPICS: the numbered subsections or sub-headings inside it (e.g. "1.1 ...", "1.2 ..."), using the exact names from the document. If a topic has no clear subtopics, use an empty array [].
+- Only return the exact unit/chapter/lesson TITLES and their subsection titles (e.g. "UNIT 3: CELLS"). Never return sentences, paragraphs, questions or descriptions — titles only.
 - Use the exact names used in the document when they are clear (e.g. "Unit 3: Cells", "Chapter 5 — Climate", "Soil erosion").
-- If the document has no clear chapters or units, list the main subject areas it covers.
-- Write the topics in the SAME language as the document.
-- Never invent topics that are not covered in the document.
+- If the document has no clear chapters or units, list the main subject areas it covers, each with its subsections where possible.
+- Write the topics and subtopics in the SAME language as the document.
+- Never invent topics or subtopics that are not covered in the document.
 - If the document is an exam paper, test or assessment (not teaching notes), return {"topics": []}.
 - IGNORE document furniture and front matter — NEVER list: school names or mottos (e.g. "Quality Secondary Education"), school addresses (e.g. "Kinyababa Sector, Burera District, Rwanda"), the assessment/exam title (e.g. "Senior 5 Geography National Examination Assessment"), "STUDENT NAME", "INSTRUCTIONS", "SECTION A/B", "Total marks", "Time allowed", page numbers, the foreword, the acknowledgement, the dedication, the preface, the copyright page, "Table of Contents", or anything that is not a real subject topic or chapter.
 
 COURSE NOTES:
-${text.slice(0, 60000)}`;
+${text.slice(0, 150000)}`;
 }
 
 function parseTopics(content) {
@@ -318,63 +428,127 @@ function parseTopics(content) {
   if (start === -1 || end === -1 || end <= start) return [];
   try {
     const parsed = JSON.parse(cleaned.slice(start, end + 1));
-    const topics = Array.isArray(parsed.topics) ? parsed.topics : [];
-    return topics
-      .map((t) => String(t).trim())
-      .filter((t) => t.length > 1 && !isJunkTopic(t))
-      .slice(0, 60);
+    const raw = Array.isArray(parsed.topics) ? parsed.topics : [];
+    const out = [];
+    const seen = new Set();
+    for (const t of raw) {
+      const isObj = t && typeof t === 'object';
+      const name = String(isObj ? t.topic || t.name : t).trim();
+      if (!name || isJunkTitle(name)) continue;
+      const key = normalizeTopicKey(name);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const subtopics = (isObj && Array.isArray(t.subtopics) ? t.subtopics : [])
+        .map((s) => String(s).trim())
+        .filter((s) => s.length > 1 && /\p{L}/u.test(s) && !isJunkTitle(s));
+      out.push({ name, subtopics: [...new Set(subtopics)] });
+      if (out.length >= 60) break;
+    }
+    return out;
   } catch {
     return [];
   }
 }
 
-async function generateTopics(text) {
-  const offline = extractTopicsFallback(text);
+function normalizeTopicKey(t) {
+  return String(t || '')
+    .toLowerCase()
+    .replace(/[.,;:]+$/, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
 
-  // Real unit/chapter headings detected directly in the text are the most
-  // reliable, so prefer them over AI output.
-  if (offline.some((t) => /^(UNIT|CHAPTER|LESSON|TOPIC|MODULE|PART)\b\s*[\dIVXLC]/i.test(t))) {
-    return offline;
-  }
+// Combine the precise headings found in the full text (offline) with the
+// broader list the AI produces from a large slice of the document. Headings
+// come first because they are exact; AI subtopics are added when a heading has
+// none, so nothing is lost.
+function mergeTopics(headings, aiTopics, limit = 60) {
+  const byKey = new Map();
+  const add = (t) => {
+    if (!t || typeof t !== 'object') return;
+    const name = String(t.name || t.topic || '').trim();
+    const key = normalizeTopicKey(name);
+    if (!name || !key || isJunkTitle(name)) return;
+    const subs = (t.subtopics || []).map((s) => String(s).trim()).filter(Boolean);
+    const existing = byKey.get(key);
+    if (existing) {
+      existing.subtopics = [...new Set([...existing.subtopics, ...subs])];
+    } else {
+      byKey.set(key, { name, subtopics: [...new Set(subs)] });
+    }
+  };
+  (headings || []).forEach(add);
+  (aiTopics || []).forEach(add);
+  return [...byKey.values()].slice(0, limit);
+}
+
+async function generateTopics(text) {
+  // First scan the ENTIRE document for real heading lines. This is not
+  // truncated, so it catches every UNIT/CHAPTER/... heading in a long book.
+  const headings = extractTopicsFallback(text);
 
   const prompt = buildTopicsPrompt(text);
   const system =
-    'You are a curriculum analyst reading a course document. Respond as strict JSON with an array of topics named "topics". Only list the exact unit, chapter or lesson TITLES from the document (e.g. "UNIT 3: CELLS"). Never list sentences, paragraphs, forewords, acknowledgements or any front-matter text.';
+    'You are a curriculum analyst reading a course document. Respond as strict JSON with an array of topics named "topics". Each topic is an object with "topic" (the exact unit, chapter or lesson TITLE, e.g. "UNIT 3: CELLS") and "subtopics" (its numbered subsections, or []). Never list sentences, paragraphs, forewords, acknowledgements or any front-matter text.';
 
   const providers = [];
   if (process.env.GEMINI_API_KEY) providers.push(() => callGemini(prompt, system));
   if (process.env.OPENAI_API_KEY || process.env.AI_API_KEY) providers.push(() => callOpenAI(prompt, system));
 
+  // When AI is configured, always ask it for the full list and merge it with
+  // the offline headings, so the teacher sees every topic in the document.
   for (const fn of providers) {
     try {
       const aiTopics = parseTopics(await fn());
-      if (aiTopics.length >= 2) return aiTopics;
+      if (aiTopics.length >= 2) return mergeTopics(headings, aiTopics);
     } catch (error) {
       console.warn('[ai] topics provider failed:', error.message);
     }
   }
 
-  return offline;
+  return headings;
 }
 
-const PDF_JUNK_WORDS =
-  /\b(students?|names?|registration|instructions?|answers?|questions?|marking|marks?|time\s+allowed|section|quality|school|sector|district|province|phone|email|teacher|signature|page|examination|exam|assessment|test|quiz|foreword|acknowledgements?|dedication|preface|contents|copyright|reserved|director|minister|government)\b/i;
+// Blacklist used ONLY for the keyword fallback (single-word "topics" when no
+// real headings exist), where generic words would make useless chips.
+const KEYWORD_JUNK =
+  /\b(students?|school|teacher|subject|class|section|instructions?|questions?|answers?|marking|marks?|time\s+allowed|exam|examination|assessment|test|quiz|page|foreword|acknowledgements?|dedication|preface|contents|copyright|reserved|director|minister|government|education|rwanda|institution|registration|name|date)\b/i;
 
-// A topic title is furniture (not a real subject topic) if it looks like a PDF
-// header, instruction, school motto, address, exam title, or front-matter text.
-function isJunkTopic(topic) {
-  const s = String(topic || '').trim();
-  if (!s || s.length > 75) return true;
-  if (PDF_JUNK_WORDS.test(s)) return true;
-  if (/^(students?|names?|date|class|subject|teacher|school|section|instructions?|time\s+allowed|total\s+marks|registration|institution|address|phone|email|dear|finally|director|minister|head\s+of)\b/i.test(s)) return true;
-  if (/^(i|in|this)\s/i.test(s)) return true;
-  if (/national\s+(examination|assessment|exam)/i.test(s)) return true;
-  if (/(quality|motto).*(secondary|school|education)/i.test(s)) return true;
-  if (/(sector|district|province).*(rwanda)/i.test(s)) return true;
-  if (/,$/i.test(s) || /\bREB\b/i.test(s) || /\bs[1-6]\b/i.test(s) || /\b(19|20)\d{2}\b/.test(s)) return true;
+// A topic title is furniture (not a real subject topic) when it IS one of the
+// document's non-subject parts: a foreword, an address, a school motto, an exam
+// form field, a page marker, etc. Merely CONTAINING a common word like "school"
+// or "government" does not make a topic junk — "School Rules", "Physical
+// Education" and "Local Government" are real subject topics and must be kept.
+function isJunkTitle(s) {
+  const t = String(s || '').trim();
+  if (!t || t.length < 3 || t.length > 75) return true;
+
+  // Document furniture, exactly as the whole heading
+  if (/^(foreword|acknowledgements?|dedication|preface|table of contents|copyright|about (this|the) (book|document)|references?|bibliography|appendices?|glossary|student'?s? name|instructions?|time allowed|total marks)\b/i.test(t)) return true;
+
+  // Exam-paper form fields
+  if (/^(name|date|class|subject|section|school|teacher|registration number|address|phone|e-?mail|dear|head of school)\b/i.test(t)) return true;
+
+  // PDF page markers and page headers
+  if (/^(page|pg|p)\.?\s*\d+\b/i.test(t)) return true;
+  if (/^--?\s*\d+\s+(of|sur)\s+\d+\s*-?$/i.test(t)) return true;
+
+  // Addresses, mottos and institutional boilerplate
+  if (/(sector|district|province)\b[^\n]*\brwanda\b/i.test(t)) return true;
+  if (/(quality|motto)\b[^\n]*\b(secondary|education|school)\b/i.test(t)) return true;
+  if (/national\s+(examination|assessment|exam)\b/i.test(t)) return true;
+  if (/\b(r\.?e\.?b|nera|republic of rwanda|ministry of education|rwanda (basic )?education board)\b/i.test(t)) return true;
+  if (/(copyright|all rights reserved|the property of)\b/i.test(t)) return true;
+
+  // Trailing oddities
+  if (/,$/.test(t)) return true;
+  if (/\b(19|20)\d{2}\b/.test(t)) return true;
   return false;
 }
 
+// Offline topic detection: scans the FULL document (no truncation) for heading
+// lines and groups numbered sub-headings under their parent topic, so the
+// result is a topic -> subtopics tree.
 function extractTopicsFallback(text) {
   const rawLines = (text || '')
     .split('\n')
@@ -383,16 +557,20 @@ function extractTopicsFallback(text) {
 
   const segments = [];
   for (const line of rawLines) {
-    const parts = line.split(/(?=\b(?:UNIT|CHAPTER|LESSON|TOPIC|MODULE|PART)\b\s*[\dIVXLC]+[^A-Za-z0-9]*[A-Za-z])/i);
+    const parts = line.split(
+      /(?=\b(?:UNIT|CHAPTER|LESSON|TOPIC|MODULE|PART)\b\s*[\dIVXLC]+[^\p{L}\p{N}]*[\p{L}])/iu
+    );
     for (const part of parts) {
       const t = part.trim();
       if (t) segments.push(t);
     }
   }
 
-  const isHeading = (s) =>
-    /^(UNIT|CHAPTER|LESSON|TOPIC|MODULE|PART)\b\s*[\dIVXLC]+[^A-Za-z0-9]*[A-Za-z]/i.test(s) ||
-    /^\d{1,2}(\.\d+)*\.\s+[A-Z]/.test(s);
+  const isUnitHeading = (s) => /^(UNIT|CHAPTER|LESSON|TOPIC|MODULE|PART)\b/iu.test(s);
+  const isTopHeading = (s) =>
+    isUnitHeading(s) && /^(UNIT|CHAPTER|LESSON|TOPIC|MODULE|PART)\b\s*[\dIVXLC]+[^\p{L}\p{N}]*[\p{L}]/iu.test(s);
+  // Numbered sub-headings (e.g. "1.1 Cell structure", "2.3 Climate")
+  const isSubHeading = (s) => /^\d{1,2}\.\d{1,3}(\.\d{1,2})?\s*\p{Lu}/u.test(s);
 
   const cleanTitle = (t) =>
     t
@@ -403,34 +581,60 @@ function extractTopicsFallback(text) {
 
   const topics = [];
   const seen = new Set();
+  const pushTopic = (title, subtopics = []) => {
+    title = cleanTitle(title);
+    const key = normalizeTopicKey(title);
+    if (!title || !key || seen.has(key) || isJunkTitle(title)) return;
+    seen.add(key);
+    const subs = [...new Set(subtopics.map((s) => cleanTitle(s)).filter(Boolean))].filter(
+      (s) => normalizeTopicKey(s) !== key && !isJunkTitle(s)
+    );
+    topics.push({ name: title, subtopics: subs });
+  };
+
+  let current = null;
+  let currentSubs = [];
 
   for (let i = 0; i < segments.length && topics.length < 60; i += 1) {
     const seg = segments[i];
-    if (!isHeading(seg)) continue;
-    if (PDF_JUNK_WORDS.test(seg)) continue;
+    const isTop = isTopHeading(seg);
+    const isSub = isSubHeading(seg);
 
-    let title = cleanTitle(seg);
-    for (let j = i + 1; j < segments.length; j += 1) {
-      const next = segments[j].trim();
-      if (!next || isHeading(next)) break;
-      if (/^\d+$/.test(next) || PDF_JUNK_WORDS.test(next)) break;
-      if (/[.!?]$/.test(next) || next.length > 45) break;
-      if (title.length + next.length > 90) break;
-      title += ' ' + next.replace(/[.,;:]+$/, '');
+    if (isTop) {
+      if (current) pushTopic(current, currentSubs);
+      current = seg;
+      currentSubs = [];
+      for (let j = i + 1; j < segments.length; j += 1) {
+        const next = segments[j].trim();
+        if (!next || isTopHeading(next) || isSubHeading(next)) break;
+        if (/^\d+$/.test(next) || isJunkTitle(next)) break;
+        if (/[.!?]$/.test(next) || next.length > 45) break;
+        if (current.length + next.length > 90) break;
+        current += ' ' + next.replace(/[.,;:]+$/, '');
+      }
+      continue;
     }
-    title = cleanTitle(title);
 
-    const key = title.toLowerCase();
-    if (seen.has(key)) continue;
-    seen.add(key);
-    topics.push(title);
+    if (isSub && current) {
+      let sub = seg;
+      for (let j = i + 1; j < segments.length; j += 1) {
+        const next = segments[j].trim();
+        if (!next || isTopHeading(next) || isSubHeading(next)) break;
+        if (/^\d+$/.test(next) || isJunkTitle(next)) break;
+        if (/[.!?]$/.test(next) || next.length > 45) break;
+        if (sub.length + next.length > 90) break;
+        sub += ' ' + next.replace(/[.,;:]+$/, '');
+      }
+      currentSubs.push(sub);
+    }
   }
+  if (current) pushTopic(current, currentSubs);
 
   if (topics.length >= 1) return topics;
   const kws = keywordRanks(text)
-    .filter((k) => !PDF_JUNK_WORDS.test(k))
+    .filter((k) => !KEYWORD_JUNK.test(k))
     .slice(0, 20);
-  return kws.length >= 3 ? kws.map((k) => k.charAt(0).toUpperCase() + k.slice(1)) : [];
+  return kws.length >= 3 ? kws.map((k) => ({ name: k.charAt(0).toUpperCase() + k.slice(1), subtopics: [] })) : [];
 }
 
 // ---- Offline fallback: keyword + sentence based generator --------------------
@@ -551,8 +755,37 @@ function generateFallback({ text, type, count, subject, className, title, topics
   return { title: null, questions: qs };
 }
 
+// Offline generation that respects per-topic limits: each limited topic
+// produces up to its own quota of questions, then the remainder comes from the
+// other selected topics (or the whole document when nothing else is selected).
+function generateFallbackDistributed(opts) {
+  const { topics = [], count } = opts;
+  const limited = topics.filter((t) => t.limit > 0);
+  const unlimited = topics.filter((t) => t.limit <= 0);
+  if (limited.length === 0) return generateFallback(opts);
+
+  const questions = [];
+  for (const t of limited) {
+    const remaining = count - questions.length;
+    if (remaining <= 0) break;
+    const n = Math.min(t.limit, remaining);
+    const seg = selectTopicText(opts.text, [{ name: t.name, subtopics: t.subtopics }], 60000);
+    if (!seg || seg.trim().length < 50) continue;
+    const r = generateFallback({ ...opts, text: seg, count: n, topics: [] });
+    questions.push(...r.questions);
+  }
+  const remaining = count - questions.length;
+  if (remaining > 0) {
+    const seg = unlimited.length ? selectTopicText(opts.text, unlimited, 60000) : opts.text;
+    const r = generateFallback({ ...opts, text: seg, count: remaining, topics: [] });
+    questions.push(...r.questions);
+  }
+  return { title: null, questions: questions.slice(0, count) };
+}
+
 // Main entry: prefer configured AI providers, fall back to the offline generator.
 async function generateAssessment(opts) {
+  const normalized = { ...opts, topics: normalizeTopics(opts.topics) };
   const providers = [];
   if (process.env.GEMINI_API_KEY) providers.push({ name: 'gemini', fn: generateWithGemini });
   if (process.env.OPENAI_API_KEY || process.env.AI_API_KEY) providers.push({ name: 'openai', fn: generateWithAI });
@@ -562,7 +795,7 @@ async function generateAssessment(opts) {
 
   for (const p of providers) {
     try {
-      const out = await p.fn(opts);
+      const out = await p.fn(normalized);
       if (out) {
         source = p.name;
         result = out;
@@ -573,7 +806,7 @@ async function generateAssessment(opts) {
     }
   }
 
-  if (!result) result = generateFallback(opts);
+  if (!result) result = generateFallbackDistributed(normalized);
 
   const fallbackTitle =
     opts.title ||
@@ -590,4 +823,4 @@ async function generateAssessment(opts) {
   };
 }
 
-module.exports = { extractText, generateAssessment, generateTopics, generateFallback };
+module.exports = { extractText, generateAssessment, generateTopics, generateFallback, normalizeTopics };

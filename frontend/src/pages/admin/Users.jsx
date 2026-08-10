@@ -35,6 +35,20 @@ const emptyForm = {
   password: '',
 };
 
+const AVATAR_CLS = {
+  admin: 'bg-violet-100 text-violet-700',
+  leader: 'bg-amber-100 text-amber-700',
+  teacher: 'bg-brand-green-light text-brand-green-deep',
+};
+
+const initials = (name) =>
+  String(name || '?')
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((p) => p[0].toUpperCase())
+    .join('');
+
 export default function Users() {
   const { data, loading, error, reload } = useFetch('/admin/users');
   const users = data || [];
@@ -102,6 +116,13 @@ export default function Users() {
 
   const field = (key, val) => setForm((f) => ({ ...f, [key]: val }));
 
+  const stats = [
+    { label: 'Total users', value: users.length, icon: UsersIcon, cls: 'text-brand-green-dark' },
+    { label: 'Teachers', value: users.filter((u) => u.role === 'teacher').length, icon: BookOpen, cls: 'text-emerald-600' },
+    { label: 'Leaders', value: users.filter((u) => u.role === 'leader').length, icon: GraduationCap, cls: 'text-amber-600' },
+    { label: 'Admins', value: users.filter((u) => u.role === 'admin').length, icon: ShieldCheck, cls: 'text-violet-600' },
+  ];
+
   return (
     <div className="page-fade space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -123,11 +144,45 @@ export default function Users() {
         </div>
       </div>
 
-      {error && <Alert type="error" message={errorMessage(error, 'Could not load users')} />}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {stats.map((s) => (
+          <div key={s.label} className="card flex items-center gap-3 p-4">
+            <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${s.cls}`}>
+              <s.icon className="h-5 w-5" />
+            </span>
+            <div className="min-w-0">
+              <p className="font-display text-xl font-bold leading-none text-slate-900">{s.value}</p>
+              <p className="mt-1 truncate text-[11px] font-semibold uppercase tracking-wide text-slate-400">{s.label}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {error && (
+        <div className="flex items-start gap-3">
+          <Alert type="error" message={`${errorMessage(error, 'Could not load users')}. The backend may need to be restarted to expose the admin API.`} onClose={() => reload()} />
+          <button onClick={reload} className="btn-outline shrink-0 !px-3.5 !py-2 !text-xs">
+            Retry
+          </button>
+        </div>
+      )}
 
       {loading ? (
         <div className="flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white py-16 text-sm text-slate-500">
           <Spinner size="sm" /> Loading users...
+        </div>
+      ) : users.length === 0 ? (
+        <div className="card flex flex-col items-center justify-center gap-3 px-6 py-16 text-center">
+          <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-green-light text-brand-green-dark">
+            <UsersIcon className="h-7 w-7" />
+          </span>
+          <div>
+            <p className="font-display text-base font-bold text-slate-800">No users yet</p>
+            <p className="mt-1 text-xs text-slate-500 sm:text-sm">Add the first teacher, leader or admin account to get started.</p>
+          </div>
+          <button onClick={openCreate} className="btn-primary !px-4 !py-2 !text-xs">
+            <UserPlus className="h-3.5 w-3.5" /> Add your first user
+          </button>
         </div>
       ) : (
         <div className="card overflow-x-auto">
@@ -143,21 +198,21 @@ export default function Users() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {users.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="px-4 py-10 text-center text-slate-400">
-                    No users yet.
-                  </td>
-                </tr>
-              )}
               {users.map((u) => {
                 const RoleIcon = ROLE_ICONS[u.role] || BookOpen;
                 return (
                   <tr key={u.id} className="transition hover:bg-brand-green-light/40">
                     <td className="px-4 py-3">
-                      <p className="font-semibold text-slate-800">{u.name}</p>
-                      <p className="text-xs text-slate-400">{u.email}</p>
-                      {u.title && <p className="text-xs text-slate-500">{u.title}</p>}
+                      <div className="flex items-center gap-3">
+                        <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold ${AVATAR_CLS[u.role] || AVATAR_CLS.teacher}`}>
+                          {initials(u.name)}
+                        </span>
+                        <div className="min-w-0">
+                          <p className="truncate font-semibold text-slate-800">{u.name}</p>
+                          <p className="truncate text-xs text-slate-400">{u.email}</p>
+                          {u.title && <p className="truncate text-xs text-slate-500">{u.title}</p>}
+                        </div>
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-slate-600">@{u.username}</td>
                     <td className="px-4 py-3">
@@ -167,9 +222,13 @@ export default function Users() {
                     </td>
                     <td className="px-4 py-3">
                       {u.active ? (
-                        <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-bold text-emerald-700">Active</span>
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-bold text-emerald-700">
+                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Active
+                        </span>
                       ) : (
-                        <span className="rounded-full bg-rose-100 px-2.5 py-1 text-[11px] font-bold text-rose-700">Disabled</span>
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-100 px-2.5 py-1 text-[11px] font-bold text-rose-700">
+                          <span className="h-1.5 w-1.5 rounded-full bg-rose-500" /> Disabled
+                        </span>
                       )}
                     </td>
                     <td className="px-4 py-3 text-xs text-slate-500">{formatDateTime(u.createdAt)}</td>

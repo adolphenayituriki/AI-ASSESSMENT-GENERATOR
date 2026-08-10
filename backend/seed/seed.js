@@ -37,6 +37,12 @@ async function seedData() {
       console.log('Seeded demo leader account (leader / leader123).');
     }
 
+    const adminEmail = 'www.nayituriki.com@gmail.com';
+    const promoted = await User.updateOne({ email: adminEmail }, { $set: { role: 'admin', active: true } });
+    if (promoted.matchedCount > 0) {
+      console.log(promoted.modifiedCount > 0 ? `Promoted ${adminEmail} to admin.` : `${adminEmail} is already an admin.`);
+    }
+
     const ALL_CLASSES = [
       { name: 'Nursery', level: 'Nursery' },
       { name: 'P1', level: 'Primary' },

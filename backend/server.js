@@ -56,6 +56,7 @@ app.get('/api/health', (req, res) => {
 // Routes
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/staff', require('./routes/staffRoutes'));
+app.use('/api/admin', require('./routes/adminRoutes'));
 app.use('/api/assessments', require('./routes/assessmentRoutes'));
 
 // Serve static frontend assets and SPA fallback (skip /api)

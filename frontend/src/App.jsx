@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
+import { Routes, Route, Navigate, Link, NavLink, useLocation } from 'react-router-dom';
 import { LogOut, LogIn } from 'lucide-react';
 import { useAuth } from './context/AuthContext';
 import Spinner from './components/Spinner';
@@ -8,7 +8,13 @@ import Login from './pages/Login';
 import Landing from './pages/Landing';
 import Developer from './pages/Developer';
 import AIExam from './pages/staff/AIExam';
+import Users from './pages/admin/Users';
 import { roleHome, roleLabel } from './utils/helpers';
+
+const navLinkCls = ({ isActive }) =>
+  `rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+    isActive ? 'bg-brand-green-light text-brand-green-dark' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-800'
+  }`;
 
 function RoleRoute({ roles, children }) {
   const { user, checking } = useAuth();
@@ -38,6 +44,18 @@ function TopBar() {
             </p>
           </div>
         </div>
+        {user && (
+          <nav className="mx-auto hidden items-center gap-1 md:flex">
+            <NavLink to="/app" className={navLinkCls} end>
+              Assessments
+            </NavLink>
+            {user.role === 'admin' && (
+              <NavLink to="/admin/users" className={navLinkCls}>
+                User Management
+              </NavLink>
+            )}
+          </nav>
+        )}
         {user ? (
           <div className="flex items-center gap-3">
             <div className="hidden text-right sm:block">
@@ -80,6 +98,16 @@ export default function App() {
                 <RoleRoute roles={['teacher', 'leader', 'admin']}>
                   <div className="container-page py-6 sm:py-8">
                     <AIExam />
+                  </div>
+                </RoleRoute>
+              }
+            />
+            <Route
+              path="/admin/users"
+              element={
+                <RoleRoute roles={['admin']}>
+                  <div className="container-page py-6 sm:py-8">
+                    <Users />
                   </div>
                 </RoleRoute>
               }

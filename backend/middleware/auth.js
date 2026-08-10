@@ -26,6 +26,14 @@ const adminOnly = (req, res, next) => {
   }
 };
 
+const adminStrict = (req, res, next) => {
+  if (req.user && req.user.role === 'admin') {
+    next();
+  } else {
+    res.status(403).json({ message: 'Administrator access required' });
+  }
+};
+
 const staffOnly = (req, res, next) => {
   if (req.user && ['admin', 'teacher', 'leader'].includes(req.user.role)) {
     next();
@@ -54,4 +62,4 @@ const publicUser = (user) => ({
   active: user.active,
 });
 
-module.exports = { protect, adminOnly, staffOnly, teacherOnly, publicUser };
+module.exports = { protect, adminOnly, adminStrict, staffOnly, teacherOnly, publicUser };

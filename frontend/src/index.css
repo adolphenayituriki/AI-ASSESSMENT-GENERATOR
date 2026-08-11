@@ -288,6 +288,17 @@
     animation: float-y 6s ease-in-out infinite;
   }
 
+  @keyframes float-fade {
+    0%   { transform: translateY(0) rotate(var(--rot, 0deg)); opacity: 0; }
+    20%  { transform: translateY(-10px) rotate(var(--rot, 0deg)); opacity: 1; }
+    55%  { transform: translateY(-18px) rotate(var(--rot, 0deg)); opacity: 1; }
+    100% { transform: translateY(0) rotate(var(--rot, 0deg)); opacity: 0; }
+  }
+  .float-fade {
+    animation: float-fade 8s ease-in-out infinite;
+    will-change: transform, opacity;
+  }
+
   @keyframes logo-drift {
     from { transform: translateY(0) rotate(0deg) scale(1); }
     50%  { transform: translateY(-26px) rotate(180deg) scale(1.06); }

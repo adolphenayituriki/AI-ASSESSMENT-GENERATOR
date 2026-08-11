@@ -709,21 +709,21 @@ export default function AIExam() {
         <div className="bg-drift pointer-events-none absolute -bottom-28 -left-16 h-72 w-72 rounded-full bg-brand-gold/10 blur-3xl" aria-hidden="true" />
         <div className="pointer-events-none absolute inset-0 hidden overflow-hidden sm:block" aria-hidden="true">
           <img
-            src="/images/float-exam.jpg"
+            src="/images/rwanda-rilima.jpg"
             alt=""
-            className="float-icon absolute -right-3 -top-3 h-14 w-14 rounded-full object-cover opacity-45 shadow-lg ring-2 ring-white/20"
+            className="float-fade absolute -right-3 -top-3 h-14 w-14 rounded-full object-cover opacity-60 shadow-lg ring-2 ring-white/25"
             style={{ '--rot': '-8deg', animationDelay: '0.6s' }}
           />
           <img
-            src="/images/float-study.jpg"
+            src="/images/hero-classroom.jpg"
             alt=""
-            className="float-icon absolute -bottom-4 -left-4 h-16 w-16 rounded-full object-cover opacity-40 shadow-lg ring-2 ring-white/20"
+            className="float-fade absolute -bottom-4 -left-4 h-16 w-16 rounded-full object-cover opacity-55 shadow-lg ring-2 ring-white/25"
             style={{ '--rot': '8deg', animationDelay: '1.8s' }}
           />
           <img
-            src="/images/float-notes.jpg"
+            src="/images/rwanda-preschool.jpg"
             alt=""
-            className="float-icon absolute -bottom-5 left-1/2 h-12 w-12 rounded-full object-cover opacity-35 shadow-md ring-2 ring-white/15"
+            className="float-fade absolute -bottom-5 left-1/2 h-12 w-12 rounded-full object-cover opacity-50 shadow-md ring-2 ring-white/20"
             style={{ '--rot': '5deg', animationDelay: '3s' }}
           />
         </div>

@@ -69,7 +69,7 @@ export default function Landing() {
       <section className="relative overflow-hidden bg-gradient-to-br from-brand-green-ink via-brand-green-deep to-brand-green-dark">
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
           <video
-            className="ken-burns h-full w-full object-cover opacity-40 mix-blend-screen"
+            className="ken-burns h-full w-full object-cover opacity-60 mix-blend-screen"
             autoPlay
             muted
             loop
@@ -97,26 +97,34 @@ export default function Landing() {
             className="logo-drift absolute left-2 top-[14%] h-28 w-28 rounded-2xl object-cover opacity-30 sm:left-6 sm:h-48 sm:w-48"
           />
 
+          {/* Floating Rwandan education photos */}
           <img
-            src="/images/float-exam.jpg"
+            src="/images/rwanda-rilima.jpg"
             alt=""
             aria-hidden="true"
-            className="float-icon absolute right-[8%] top-[18%] hidden h-20 w-20 rounded-full object-cover opacity-60 shadow-lg ring-2 ring-white/20 md:block"
+            className="float-fade absolute right-[6%] top-[16%] hidden h-24 w-24 rounded-full object-cover opacity-80 shadow-lg ring-2 ring-white/30 md:block"
             style={{ "--rot": "6deg", animationDelay: "-2s" }}
           />
           <img
-            src="/images/float-study.jpg"
+            src="/images/hero-classroom.jpg"
             alt=""
             aria-hidden="true"
-            className="float-icon absolute left-[14%] bottom-[22%] hidden h-24 w-24 rounded-full object-cover opacity-55 shadow-lg ring-2 ring-white/20 lg:block"
+            className="float-fade absolute left-[12%] bottom-[20%] hidden h-28 w-28 rounded-full object-cover opacity-75 shadow-lg ring-2 ring-white/30 lg:block"
             style={{ "--rot": "10deg", animationDelay: "-4s" }}
           />
           <img
-            src="/images/float-notes.jpg"
+            src="/images/rwanda-preschool.jpg"
             alt=""
             aria-hidden="true"
-            className="float-icon absolute left-[42%] top-[10%] hidden h-16 w-16 rounded-full object-cover opacity-50 shadow-md ring-2 ring-white/15 xl:block"
+            className="float-fade absolute right-[24%] top-[8%] hidden h-16 w-16 rounded-full object-cover opacity-70 shadow-md ring-2 ring-white/25 xl:block"
             style={{ "--rot": "-7deg", animationDelay: "-1s" }}
+          />
+          <img
+            src="/images/rwanda-rilima.jpg"
+            alt=""
+            aria-hidden="true"
+            className="float-fade absolute right-[32%] bottom-[14%] hidden h-20 w-20 rounded-full object-cover opacity-65 shadow-md ring-2 ring-white/25 lg:block"
+            style={{ "--rot": "-5deg", animationDelay: "-5s" }}
           />
         </div>
 

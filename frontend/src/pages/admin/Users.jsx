@@ -302,8 +302,8 @@ export default function Users() {
         </div>
       ) : users.length === 0 ? (
         <div className="card flex flex-col items-center justify-center gap-3 px-6 py-16 text-center">
-          <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-green-light text-brand-green-dark">
-            <UsersIcon className="h-7 w-7" />
+          <span className="flex h-14 w-14 items-center justify-center text-slate-300">
+            <UsersIcon className="h-8 w-8" />
           </span>
           <div>
             <p className="font-display text-base font-bold text-slate-800">No users yet</p>
@@ -315,8 +315,8 @@ export default function Users() {
         </div>
       ) : visible.length === 0 ? (
         <div className="card flex flex-col items-center justify-center gap-3 px-6 py-16 text-center">
-          <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
-            <Search className="h-6 w-6" />
+          <span className="flex h-14 w-14 items-center justify-center text-slate-300">
+            <Search className="h-7 w-7" />
           </span>
           <div>
             <p className="font-display text-base font-bold text-slate-800">No users match your filters</p>

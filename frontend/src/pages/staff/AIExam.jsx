@@ -143,8 +143,8 @@ function QuestionCard({ q, index, defaultOpen = false, editing = false, draft, o
           </span>
         </span>
         <span
-          className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-slate-400 transition-transform duration-200 ${
-            open ? 'rotate-180 bg-brand-green-light text-brand-green-dark' : 'bg-slate-100 text-slate-500'
+          className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full transition-transform duration-200 ${
+            open ? 'rotate-180 text-brand-green-dark' : 'text-slate-400'
           }`}
         >
           <ChevronDown className="h-3.5 w-3.5" />
@@ -1561,8 +1561,8 @@ export default function AIExam() {
               <div className="flex justify-center py-10"><Spinner /></div>
             ) : !library || library.length === 0 ? (
               <div className="px-5 py-12 text-center">
-                <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-xl bg-slate-100 text-slate-400">
-                  <Inbox className="h-7 w-7" />
+                <span className="mx-auto flex h-14 w-14 items-center justify-center text-slate-300">
+                  <Inbox className="h-8 w-8" />
                 </span>
                 <p className="mt-3 text-sm font-semibold text-slate-600">No saved assessments yet</p>
                 <p className="mt-1 text-xs text-slate-400">

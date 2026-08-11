@@ -107,7 +107,7 @@ export default function Login() {
             <div className="relative space-y-2">
               {roleHints.map((r) => (
                 <div key={r.label} className="flex items-center gap-2.5 rounded-xl border border-white/10 bg-white/10 p-2.5 backdrop-blur-md">
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/10 text-brand-gold">
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center text-brand-gold">
                     <r.icon className="h-4 w-4" />
                   </span>
                   <div className="min-w-0">

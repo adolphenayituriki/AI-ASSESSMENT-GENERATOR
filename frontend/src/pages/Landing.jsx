@@ -189,7 +189,7 @@ export default function Landing() {
           <h2 className="font-hand text-3xl font-bold text-brand-green-deep sm:text-5xl">
             From notes to a full paper in seconds
           </h2>
-          <p className="section-subtitle">
+          <p className="mt-2 text-sm leading-relaxed text-slate-500 sm:text-base">
             Real exam-quality questions for quizzes, exams, exercises and
             homework — written from the actual content of your notes, not trivia
             about the document itself.
@@ -199,9 +199,9 @@ export default function Landing() {
           {features.map((f) => (
             <div
               key={f.title}
-              className="group card card-hover relative overflow-hidden rounded-2xl p-6 text-center"
+              className="group rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-card transition-all duration-300 hover:-translate-y-1 hover:border-brand-green-soft hover:shadow-lift"
             >
-              <i className={`fa-solid ${f.fa} text-3xl text-brand-green-dark`} />
+              <i className={`fa-solid ${f.fa} text-3xl text-brand-green-dark transition-transform duration-300 group-hover:scale-110`} />
               <h3 className="mt-4 text-[15px] font-bold text-slate-900">
                 {f.title}
               </h3>
@@ -214,7 +214,7 @@ export default function Landing() {
       </section>
 
       {/* How it works */}
-      <section className="border-y border-slate-200 bg-white">
+      <section className="border-y border-slate-200 bg-slate-50/60">
         <div className="container-page py-14 sm:py-16">
           <div className="mx-auto max-w-2xl text-center">
             <h2 className="font-hand text-3xl font-bold text-brand-green-deep sm:text-5xl">

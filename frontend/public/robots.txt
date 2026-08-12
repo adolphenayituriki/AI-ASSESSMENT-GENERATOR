@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://dufast-eduai.vercel.app/sitemap.xml

@@ -14,6 +14,7 @@ try {
 
 const express = require('express');
 const cors = require('cors');
+const compression = require('compression');
 const morgan = require('morgan');
 const mongoose = require('mongoose');
 const connectDB = require('./config/db');
@@ -29,12 +30,14 @@ app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan('dev'));
+app.use(compression());
 
 // Serve the built React app in production (frontend/dist)
 const frontendDist = path.join(__dirname, '..', 'frontend', 'dist');
 
 app.get('/', (req, res) => {
   if (fs.existsSync(frontendDist)) {
+    res.set('Cache-Control', 'no-store');
     return res.sendFile(path.join(frontendDist, 'index.html'));
   }
   res.json({
@@ -59,10 +62,20 @@ app.use('/api/staff', require('./routes/staffRoutes'));
 app.use('/api/admin', require('./routes/adminRoutes'));
 app.use('/api/assessments', require('./routes/assessmentRoutes'));
 
-// Serve static frontend assets and SPA fallback (skip /api)
+// Serve static frontend assets and SPA fallback (skip /api).
+// Hashed build files under /assets are content-addressed, so they can be cached
+// for a year (immutable); index.html is served fresh on every request.
 if (fs.existsSync(frontendDist)) {
+  app.use(
+    '/assets',
+    express.static(path.join(frontendDist, 'assets'), {
+      maxAge: '365d',
+      immutable: true,
+    })
+  );
   app.use(express.static(frontendDist));
   app.get(/^\/(?!api\/).*/, (req, res) => {
+    res.set('Cache-Control', 'no-store');
     res.sendFile(path.join(frontendDist, 'index.html'));
   });
 }

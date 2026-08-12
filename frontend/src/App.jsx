@@ -1,16 +1,25 @@
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { Routes, Route, Navigate, Link, NavLink, useLocation } from 'react-router-dom';
 import { LogOut, LogIn, Menu, X, Users as UsersIcon, FileText } from 'lucide-react';
 import { useAuth } from './context/AuthContext';
 import Spinner from './components/Spinner';
 import BrandLogo from './components/BrandLogo';
-
-import Login from './pages/Login';
-import Landing from './pages/Landing';
-import Developer from './pages/Developer';
-import AIExam from './pages/staff/AIExam';
-import Users from './pages/admin/Users';
 import { roleHome, roleLabel } from './utils/helpers';
+
+// Route-level code splitting: each page loads only when first visited
+const Login = lazy(() => import('./pages/Login'));
+const Landing = lazy(() => import('./pages/Landing'));
+const Developer = lazy(() => import('./pages/Developer'));
+const AIExam = lazy(() => import('./pages/staff/AIExam'));
+const Users = lazy(() => import('./pages/admin/Users'));
+
+function PageFallback() {
+  return (
+    <div className="flex min-h-[50vh] items-center justify-center">
+      <Spinner size="lg" />
+    </div>
+  );
+}
 
 const navLinkCls = ({ isActive }) =>
   `inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-[13px] font-semibold transition-all duration-150 ${
@@ -143,34 +152,36 @@ export default function App() {
     <div className="flex min-h-screen flex-col">
       {!isLogin && <TopBar />}
       <main className="flex-1">
-        <div className="page-fade">
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route path="/" element={<Landing />} />
-            <Route path="/developer" element={<Developer />} />
-            <Route
-              path="/app"
-              element={
-                <RoleRoute roles={['teacher', 'leader', 'admin']}>
-                  <div className="container-page py-6 sm:py-8">
-                    <AIExam />
-                  </div>
-                </RoleRoute>
-              }
-            />
-            <Route
-              path="/admin/users"
-              element={
-                <RoleRoute roles={['admin']}>
-                  <div className="container-page py-6 sm:py-8">
-                    <Users />
-                  </div>
-                </RoleRoute>
-              }
-            />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </div>
+        <Suspense fallback={<PageFallback />}>
+          <div className="page-fade">
+            <Routes>
+              <Route path="/login" element={<Login />} />
+              <Route path="/" element={<Landing />} />
+              <Route path="/developer" element={<Developer />} />
+              <Route
+                path="/app"
+                element={
+                  <RoleRoute roles={['teacher', 'leader', 'admin']}>
+                    <div className="container-page py-6 sm:py-8">
+                      <AIExam />
+                    </div>
+                  </RoleRoute>
+                }
+              />
+              <Route
+                path="/admin/users"
+                element={
+                  <RoleRoute roles={['admin']}>
+                    <div className="container-page py-6 sm:py-8">
+                      <Users />
+                    </div>
+                  </RoleRoute>
+                }
+              />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </div>
+        </Suspense>
       </main>
     </div>
   );

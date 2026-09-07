@@ -291,8 +291,9 @@ const SVG_RULES = [
   'EMBEDDED FIGURES — "svg" field:',
   '- A question is clearer WITH a figure when the student must READ it: a given number line, a labelled geometric shape or angle, a line/bar/pie chart with data, a data table, a clock, a map, a weighing scale, a circuit, a labelled diagram.',
   '- For every such question embed a self-contained figure in "svg". Set "svg": "" for questions that need no figure.',
-  '- Make the SVG a standalone drawing: <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 X">. White background; thick black or very dark grey strokes (stroke-width="2"); labels and numbers in a plain readable sans-serif (font-family="Arial, sans-serif", font-size="16", fill="#111")  placed OFF the stroke so they never overlap; axes drawn as lines with small arrow-heads and labelled ticks where a scale is shown.',
+  '- Make the SVG a standalone drawing: <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 X">. White background; thick black or very dark grey strokes (stroke-width="2"); labels and numbers in a plain readable sans-serif (font-family="Arial, sans-serif", font-size="14", fill="#111")  placed OFF the stroke so they never overlap; axes drawn as lines with small arrow-heads and labelled ticks where a scale is shown.',
   '- Build figures from simple shapes only: <line>, <rect>, <circle>, <path>, <polygon>, <text>. No images, no scripts, no <foreignObject>, no external files, every tag closed.',
+  '- Keep every figure COMPACT and cheap to print: viewBox width 640, fewer than 40 elements, only the data/labels the student needs.',
   '- Do NOT include the question text, options or answer inside the SVG. The figure shows ONLY the given data, shape or scale the student reads (e.g. the number line with point A marked, the triangle with side lengths, the bar chart with values).',
   '- The question text must tell the student what to do with the figure ("Write the value shown at A on the number line below", "Using the information in the bar chart, ..."), and remain answerable from the figure alone.',
 ].join('\n');
@@ -414,6 +415,7 @@ function buildPrompt({ text, type, count, subject, className, title, difficulty,
     '4. No question depends on having read the document ("according to the notes", pages, authors, sections, front matter).',
     `5. There are exactly ${count} questions and their marks are consistent.`,
     `6. Every question is genuine curriculum-based exam content — not a template, not a placeholder, not copied from a source.`,
+    '7. Length discipline: keep every "explanation" to at most two short sentences, keep "answer" values concise (working + final result), and keep SVGs compact. Do not pad.',
   ].join('\n');
 
   const formatNote = [
@@ -478,7 +480,7 @@ async function callOpenAI(promptText, system) {
     body: JSON.stringify({
       model,
       temperature: 0.6,
-      max_tokens: 8000,
+      max_tokens: 16000,
       messages: [
         { role: 'system', content: system || 'You are a senior national examiner in Rwanda aligned with REB curriculum standards. You create clear, standalone exam questions from your own knowledge of the subject. If course notes are provided, they are optional supplementary reference only. Never copy text from any source, never ask "according to the notes", and never write questions about a document itself. Respond as strict JSON.' },
         { role: 'user', content: promptText },
@@ -521,7 +523,7 @@ async function callGemini(promptText, system) {
           contents: [{ role: 'user', parts: [{ text: `${system ? `${system}\n\n` : ''}${promptText}` }] }],
           generationConfig: {
             temperature: 0.6,
-            maxOutputTokens: 8192,
+            maxOutputTokens: 32768,
             responseMimeType: 'application/json',
           },
         }),
@@ -529,9 +531,14 @@ async function callGemini(promptText, system) {
     );
 
     if (!response.ok) {
-      lastError = new Error(
-        `Gemini request failed (${response.status}) ${(await response.text().catch(() => '')).slice(0, 200)}`
-      );
+      const detail = (await response.text().catch(() => '')).slice(0, 200);
+      if (response.status === 429) {
+        lastError = new Error(
+          `Gemini temporary limit reached (rate or free-tier quota). Wait a few minutes, reduce the number of questions, or add billing on your Gemini API account.`
+        );
+      } else {
+        lastError = new Error(`Gemini request failed (${response.status}) ${detail}`);
+      }
       if (response.status !== 503) throw lastError;
       continue; // retry transient capacity errors
     }
@@ -566,26 +573,46 @@ function parseQuestions(content) {
   }
   cleaned = cleaned.slice(start, end + 1);
 
-  let parsed = null;
-  let attempts = 0;
-  for (;;) {
+  const tryParse = (s) => {
     try {
-      parsed = JSON.parse(cleaned);
-      break;
+      return JSON.parse(s);
     } catch (err) {
-      attempts += 1;
-      if (attempts > 3) {
-        throw new Error(`AI response was not valid JSON: ${err.message}`);
-      }
-      // Recovery for a model that double-encodes JSON (a JSON string wrapping
-      // the object) or escapes every quote instead of keeping valid JSON.
-      const double = cleaned.match(/^"([\s\S]*)"$/);
-      if (double) {
-        cleaned = double[1].replace(/\\"/g, '"').replace(/\\\\/g, '\\').replace(/\\n/g, '\n');
-        continue;
-      }
-      cleaned = cleaned.replace(/\\"/g, '"').replace(/\\\\/g, '\\').replace(/\\n/g, '\n');
+      return null;
     }
+  };
+
+  // A few models wrap valid JSON inside another JSON string. Only in that case
+  // (payload starts/ends with a quote) do we unescape once — never on normal
+  // JSON, which legitimately contains \" sequences inside SVG strings.
+  const unescapeWrapper = (s) =>
+    s.replace(/\\"/g, '"').replace(/\\\\/g, '\\').replace(/\\n/g, '\n');
+
+  let parsed = tryParse(cleaned);
+  const wrapped = cleaned.match(/^"([\s\S]*)"$/);
+  if (!parsed && wrapped) {
+    const unescaped = unescapeWrapper(wrapped[1]);
+    parsed = tryParse(unescaped);
+  }
+
+  if (!parsed) {
+    // Still invalid — usually truncation when the AI cut off a long paper in
+    // the middle of the "questions" array. Salvage every complete question
+    // object so the teacher still gets a usable paper. If the whole payload
+    // was escaped (wrapper case above that failed), try that form too.
+    let recovered = recoverQuestionsArray(cleaned);
+    if (recovered.length === 0 && /\\"/.test(cleaned)) {
+      recovered = recoverQuestionsArray(unescapeWrapper(cleaned));
+    }
+    if (recovered.length === 0) {
+      throw new Error('AI response was not valid JSON');
+    }
+    return {
+      title: extractTitle(cleaned),
+      partial: true,
+      partialReason:
+        'The AI response was cut off; only the questions returned completely are included.',
+      questions: recovered.map(normalizeQuestion).filter(Boolean),
+    };
   }
 
   const questions = Array.isArray(parsed.questions) ? parsed.questions : [];
@@ -595,6 +622,53 @@ function parseQuestions(content) {
     title: String(parsed.title || '').trim() || null,
     questions: questions.map(normalizeQuestion).filter(Boolean),
   };
+}
+
+function extractTitle(json) {
+  const m = json.match(/"title"\s*:\s*"((?:\\.|[^"\\])*)"/);
+  return m ? m[1].replace(/\\"/g, '"').trim() || null : null;
+}
+
+// Scan a broken/truncated JSON payload and pull out every complete top-level
+// object inside the "questions" array. Elements that do not parse (e.g. the
+// final cut-off question) are silently dropped.
+function recoverQuestionsArray(json) {
+  const q = json.indexOf('"questions"');
+  if (q === -1) return [];
+  const open = json.indexOf('[', q);
+  if (open === -1) return [];
+  const items = [];
+  let depth = 0;
+  let inStr = false;
+  let esc = false;
+  let start = -1;
+  for (let i = open; i < json.length; i += 1) {
+    const c = json[i];
+    if (inStr) {
+      if (esc) esc = false;
+      else if (c === '\\') esc = true;
+      else if (c === '"') inStr = false;
+      continue;
+    }
+    if (c === '"') {
+      inStr = true;
+    } else if (c === '{') {
+      if (depth === 0) start = i;
+      depth += 1;
+    } else if (c === '}') {
+      depth -= 1;
+      if (depth === 0 && start !== -1) {
+        try {
+          const obj = JSON.parse(json.slice(start, i + 1));
+          if (obj && typeof obj === 'object') items.push(obj);
+        } catch (err) {
+          // skip the malformed element
+        }
+        start = -1;
+      }
+    }
+  }
+  return items;
 }
 
 // Turn a model-produced SVG into a safe image data URI we can hand to the
@@ -969,4 +1043,4 @@ async function generateAssessment(opts) {
   };
 }
 
-module.exports = { extractText, generateAssessment, generateTopics, normalizeTopics };
+module.exports = { extractText, generateAssessment, generateTopics, normalizeTopics, parseQuestions };

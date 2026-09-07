@@ -33,7 +33,7 @@ const steps = [
     details: [
       "PDF, DOCX or TXT",
       "Text extracted automatically",
-      "Up to 30 MB per file",
+      "Up to 50 MB per file",
     ],
   },
   {

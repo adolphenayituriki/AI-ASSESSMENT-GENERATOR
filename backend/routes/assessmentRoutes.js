@@ -11,7 +11,7 @@ const ALLOWED_EXT = ['pdf', 'docx', 'txt'];
 
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 30 * 1024 * 1024 },
+  limits: { fileSize: 50 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     const ext = (file.originalname || '').split('.').pop().toLowerCase();
     if (ALLOWED_EXT.includes(ext)) return cb(null, true);
@@ -59,7 +59,7 @@ router.post('/generate', protect, staffOnly, async (req, res) => {
     const doc = await CourseDocument.findOne({ _id: documentId, teacher: req.user._id });
     if (!doc) return res.status(404).json({ message: 'Document not found' });
 
-    const n = Math.min(Math.max(parseInt(count, 10) || 10, 3), 30);
+    const n = Math.min(Math.max(parseInt(count, 10) || 10, 3), 50);
     const result = await generateAssessment({
       text: doc.text,
       type,
@@ -73,7 +73,7 @@ router.post('/generate', protect, staffOnly, async (req, res) => {
 
     res.json({ title: result.title, source: result.source, questions: result.questions });
   } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
+    res.status(500).json({ message: error.message || 'Server error', error: error.message });
   }
 });
 

@@ -103,13 +103,18 @@ function QuestionCard({ q, index, defaultOpen = false, editing = false, draft, o
   const [open, setOpen] = useState(defaultOpen);
   const isMcq = (q.options || []).length > 0;
   const isVisual = q.diagram || q.graph;
-  const qtype = isMcq
+  const typeName = isMcq
     ? 'Multiple choice'
     : q.diagram
       ? 'Diagram question'
       : q.graph
         ? 'Graph question'
-        : 'Short answer';
+        : typeof q.type === 'string' && ['choice', 'true_false', 'calculation', 'short', 'practice', 'open'].includes(q.type)
+          ? q.type === 'true_false'
+            ? 'True / False'
+            : q.type.charAt(0).toUpperCase() + q.type.slice(1)
+          : 'Short answer';
+  const qtype = typeName;
   const qtypeCls = isMcq
     ? 'bg-sky-50 text-sky-700 ring-sky-100'
     : isVisual
@@ -153,6 +158,15 @@ function QuestionCard({ q, index, defaultOpen = false, editing = false, draft, o
 
       {open && (
         <div className="border-t border-slate-100 bg-slate-50/40 px-4 py-4 sm:px-5">
+          {q.figure && (
+            <div className="mb-3 overflow-hidden rounded-xl border border-slate-200 bg-white">
+              <img
+                src={q.figure}
+                alt={q.figureSpec || `Figure for question ${index + 1}`}
+                className="mx-auto max-h-72 w-auto max-w-full p-3"
+              />
+            </div>
+          )}
           {editing ? (
             <div>
               <label className="label-field !mb-1.5 text-xs font-semibold text-slate-500">Question text</label>
@@ -813,7 +827,7 @@ export default function AIExam() {
                   <span aria-hidden="true">·</span>
                   <span>TXT</span>
                   <span aria-hidden="true">·</span>
-                  <span>max 30 MB</span>
+                  <span>max 50 MB</span>
                 </span>
               </label>
 
@@ -912,15 +926,15 @@ export default function AIExam() {
                   </div>
                   <button
                     type="button"
-                    onClick={() => setForm((f) => ({ ...f, count: Math.min(30, f.count + 1) }))}
-                    disabled={form.count >= 30}
+                    onClick={() => setForm((f) => ({ ...f, count: Math.min(50, f.count + 1) }))}
+                    disabled={form.count >= 50}
                     aria-label="Increase questions"
                     className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:border-brand-green-dark hover:text-brand-green-dark disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     <Plus className="h-4 w-4" />
                   </button>
                 </div>
-                <p className="mt-1.5 text-[11px] text-slate-400">Choose between 3 and 30 questions</p>
+                <p className="mt-1.5 text-[11px] text-slate-400">Choose between 3 and 50 questions</p>
               </div>
 
               {/* Subject */}

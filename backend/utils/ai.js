@@ -1,5 +1,6 @@
 const pdfParseMod = require('pdf-parse');
 const mammoth = require('mammoth');
+const { levelProfile, subjectStrategy, DIFFICULTY_DESCRIPTORS } = require('./assessmentFramework');
 
 // pdf-parse ships two APIs: v1 exports a function, v2 exports a PDFParse class.
 async function pdfText(buffer) {
@@ -36,32 +37,72 @@ const TYPES = {
   homework: 'homework assignments',
 };
 
+// System-level instructions for assessment generation. Gemini creates
+// curriculum-aligned questions from its own knowledge of Rwanda's education
+// system (REB standards). Uploaded notes are optional supplementary context.
+const ASSESSMENT_SYSTEM_PROMPT =
+  'You are a senior national examiner in Rwanda who writes examination papers aligned with REB (Rwanda Education Board) curriculum ' +
+  'standards and the national assessment framework. You create clear, well-structured questions from your own knowledge of the subject ' +
+  'and Rwanda\'s school syllabus. You never fabricate facts, never copy text from any source into a question, never use templates ' +
+  'such as "Complete the sentence", and never write questions about a document (authors, foreword, pages, sections, table of contents). ' +
+  'Every question must be a clear, standalone exam question that a student who has studied the subject can answer without any reference ' +
+  'material. Respond as strict JSON matching the requested schema, with keys in English and values in the language of the notes.';
+
 
 const QUESTION_SCHEMA_HINT = `{
   "title": "A short title for the assessment",
   "questions": [
     {
+      "type": "choice",
       "question": "the question text",
       "marks": 1,
       "options": ["option A", "option B", "option C", "option D"],
       "correctIndex": 0,
       "explanation": "brief reason the answer is correct",
-      "diagram": false
+      "svg": ""
     },
     {
-      "question": "a short-answer question text",
-      "marks": 3,
-      "answer": "the expected model answer",
+      "type": "true_false",
+      "question": "a statement to judge (include a short reason request when appropriate)",
+      "marks": 2,
+      "options": ["True", "False"],
+      "correctIndex": 0,
+      "explanation": "why the statement is true or false",
+      "svg": ""
+    },
+    {
+      "type": "calculation",
+      "question": "a calculation or work-out command",
+      "marks": 4,
+      "options": [],
+      "correctIndex": -1,
+      "answer": "the expected working and final answer",
       "explanation": "brief note on marking",
       "diagram": false,
       "graph": false,
       "graphX": "label for the horizontal axis (only when graph is true)",
-      "graphY": "label for the vertical axis (only when graph is true)"
+      "graphY": "label for the vertical axis (only when graph is true)",
+      "svg": ""
     }
   ]
 }`;
 
 const SUBHEADING = /\n\s*\d{1,2}(\.\d{1,3}){1,2}\s*\p{Lu}/u;
+
+// Heading markers ("Unit", "UNIT", "Chapter", ...) written as explicit char
+// classes so the following NUMBER part can stay case-SENSITIVE. With the old
+// /\b(UNIT|...)\b\s*[\dIVXLC]+/iu pattern, the lowercase "i" in an ordinary
+// sentence like "unit is introduced ..." matched the roman-numeral class and
+// turned sentence fragments into fake topics. Now only "Unit 1", "Unit V",
+// "CHAPTER 3", "Lesson 2", etc. are treated as headings — lowercase filler
+// like "unit is", "part into halves" or "unit 8 assessment" is never a topic.
+const MARKER =
+  '(?:[Uu][Nn][Ii][Tt]|[Cc][Hh][Aa][Pp][Tt][Ee][Rr]|[Ll][Ee][Ss][Ss][Oo][Nn]|[Tt][Oo][Pp][Ii][Cc]|[Mm][Oo][Dd][Uu][Ll][Ee]|[Pp][Aa][Rr][Tt])';
+const HEADER_NUM = '[0-9IVXLC]+';
+const HEADING_LINE_RE = new RegExp(`^${MARKER}\\b\\s*${HEADER_NUM}[^\\p{L}\\p{N}]*[\\p{L}]`, 'u');
+const HEADING_SPLIT_RE = new RegExp(`(?=\\b${MARKER}\\b\\s*${HEADER_NUM}[^\\p{L}\\p{N}]*[\\p{L}])`, 'u');
+// Lenient version used only to bound a topic segment: the next marker+number.
+const HEADING_BOUND_RE = new RegExp(`\\n\\s*${MARKER}\\b\\s*${HEADER_NUM}`, 'u');
 
 function sliceFromEndOfLine(text, idx) {
   const lineEnd = text.indexOf('\n', idx);
@@ -73,7 +114,6 @@ function sliceFromEndOfLine(text, idx) {
 function topicSegment(text, topicName) {
   const lower = text.toLowerCase();
   const name = topicName.toLowerCase();
-  const heading = /\n\s*(UNIT|CHAPTER|LESSON|TOPIC|MODULE|PART)\b\s*[\dIVXLC]/i;
   let best = '';
   let from = 0;
   for (;;) {
@@ -81,7 +121,7 @@ function topicSegment(text, topicName) {
     if (idx === -1) break;
     const segStart = sliceFromEndOfLine(lower, idx);
     const after = text.slice(segStart);
-    const m = heading.exec(after);
+    const m = HEADING_BOUND_RE.exec(after);
     const segEnd = m ? segStart + m.index : text.length;
     const chunk = text.slice(segStart, segEnd).trim();
     if (chunk.length > best.length) best = chunk;
@@ -118,7 +158,7 @@ function subtopicText(segment, subtopic) {
 // real unit content.
 function selectTopicText(text, topics, limit = 50000) {
   const sel = normalizeTopics(topics);
-  if (sel.length === 0) return text.slice(0, limit);
+  if (sel.length === 0) return trimSlice(text, limit);
   const parts = [];
   for (const t of sel) {
     const seg = topicSegment(text, t.name);
@@ -136,10 +176,22 @@ function selectTopicText(text, topics, limit = 50000) {
     }
     parts.push(seg);
   }
-  if (parts.length === 0) return text.slice(0, limit);
+  if (parts.length === 0) return trimSlice(text, limit);
   let out = parts.join('\n\n');
-  if (out.length > limit) out = out.slice(0, limit);
+  if (out.length > limit) out = trimSlice(out, limit);
   return out;
+}
+
+// Truncate long document slices at a line or sentence boundary so the model
+// never reads half a word or a broken table cell at the end of the prompt.
+function trimSlice(text, limit) {
+  const max = Math.max(0, Number(limit) || 0);
+  if (text.length <= max) return text;
+  const piece = text.slice(0, max);
+  const nl = piece.lastIndexOf('\n');
+  const dot = piece.lastIndexOf('. ');
+  const cut = Math.max(nl, dot);
+  return cut >= max * 0.6 ? piece.slice(0, cut + 1).trim() : piece;
 }
 
 // Accept topics in either shape — an array of strings ("UNIT 1: CELLS") or an
@@ -158,7 +210,7 @@ function normalizeTopics(topics) {
     const key = normalizeTopicKey(name);
     if (seen.has(key)) continue;
     seen.add(key);
-    const limit = isObj ? Math.max(0, Math.min(30, parseInt(t.limit, 10) || 0)) : 0;
+    const limit = isObj ? Math.max(0, Math.min(50, parseInt(t.limit, 10) || 0)) : 0;
     const subtopics = (isObj && Array.isArray(t.subtopics) ? t.subtopics : [])
       .map((s) => String(s).trim())
       .filter((s) => s);
@@ -204,78 +256,218 @@ function buildVisualNote(subject, count) {
   const required = needsVisual
     ? `\nVisual questions (REQUIRED for a ${subject || 'visual'} assessment): this paper MUST include at least 1 visual question.`
     : '\nVisual questions: if any question in this paper is genuinely clearer with a visual (a drawing or a graph), include it.';
-  return `${required} For each visual question, choose the format that best tests the content — "diagram": true for anything the student must draw and label (structure, cross-section, map, flow chart, timeline, experimental set-up, circuit, cycle, ecosystem), or "graph": true for anything the student must plot on labelled axes (line, bar, histogram, curve). Set the flag ONLY on those questions (never both), keep them to a sensible number for ${count} questions (1-2 unless the paper is long), and give them marks and an "answer" describing what the drawing/graph must show.\n`;
+  return `${required} For each visual question, choose the format that best tests the content — "diagram": true for anything the student must draw and label (structure, cross-section, map, flow chart, timeline, experimental set-up, circuit, cycle, ecosystem), or "graph": true for anything the student must plot on labelled axes (line, bar, histogram, curve). Set the flag ONLY on those questions (never both), and keep them to a sensible number for ${count} questions (1-2 unless the paper is long). Visual questions MUST NOT have options: give them marks and an "answer" describing what the drawing/graph must show, and when "graph": true also provide the "graphX" and "graphY" axis labels.\n`;
+}
+
+// Types of question and how to spread them inside ONE paper, so an assessment
+// is not a wall of identical questions (e.g. only MCQs or only recall).
+const TYPE_NOTE = [
+  'Question type "type" for every question — pick the one that fits best:',
+  '- "choice": 4-option multiple choice (one correct "correctIndex").',
+  '- "true_false": a factual statement paired with the option pair ["True", "False"]; still set "correctIndex" and explain in the "explanation".',
+  '- "calculation": a mathematical working-out question with an "answer" (e.g. "Calculate ...", "Work out ...", "A farmer ... how many ...?").',
+  '- "short": a short open answer (e.g. "Define ...", "Name ...", "State TWO ...").',
+  '- "practice": an everyday application or practice problem based on real Rwandan contexts (prices at the market, seasons, school, transport, farming).',
+  '- "open": a longer open/essay-style answer (structured question, explain-and-justify, describe-and-draw).',
+].join('\n');
+
+function buildMixNote(type, count) {
+  const n = Math.max(3, count);
+  const spreads = {
+    quiz: `Approximately 55-65% "choice"/"true_false", 15-25% "calculation"/"practice", 15-25% "short"/"open".`,
+    exam: `Structure it like a real Rwandan paper: a first section of "choice" and "true_false" questions, a middle section of "calculation" and "short", and a final section of longer "practice"/"open" questions.`,
+    exercise: `Lean on "calculation", "practice" and "short" (working-through type questions), with a few "choice" checks mixed in.`,
+    homework: `A balanced mix of "choice", "short", "calculation" and "practice" questions a student can attempt alone.`,
+  };
+  const base = spreads[type] || spreads.quiz;
+  return (
+    `\nMIXED question types (required): Do not repeat one style. ${base}\n` +
+    `Once the paper has ${n >= 8 ? '8 or more' : `${n} questions`}, use at least 3 different question types (choice, true_false, calculation, short, practice, open). Let the correct type flow from the content: a fact → "choice" or "true_false"; a computation → "calculation"; a definition → "short"; a real-life situation in Rwanda → "practice"; a bigger explain/justify task → "open". Never more than two questions of the same type in a row. Open/structured questions test understanding and reasoning, not recall of the document.\n` +
+    `${TYPE_NOTE}\n`
+  );
+}
+
+const SVG_RULES = [
+  'EMBEDDED FIGURES — "svg" field:',
+  '- A question is clearer WITH a figure when the student must READ it: a given number line, a labelled geometric shape or angle, a line/bar/pie chart with data, a data table, a clock, a map, a weighing scale, a circuit, a labelled diagram.',
+  '- For every such question embed a self-contained figure in "svg". Set "svg": "" for questions that need no figure.',
+  '- Make the SVG a standalone drawing: <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 X">. White background; thick black or very dark grey strokes (stroke-width="2"); labels and numbers in a plain readable sans-serif (font-family="Arial, sans-serif", font-size="16", fill="#111")  placed OFF the stroke so they never overlap; axes drawn as lines with small arrow-heads and labelled ticks where a scale is shown.',
+  '- Build figures from simple shapes only: <line>, <rect>, <circle>, <path>, <polygon>, <text>. No images, no scripts, no <foreignObject>, no external files, every tag closed.',
+  '- Do NOT include the question text, options or answer inside the SVG. The figure shows ONLY the given data, shape or scale the student reads (e.g. the number line with point A marked, the triangle with side lengths, the bar chart with values).',
+  '- The question text must tell the student what to do with the figure ("Write the value shown at A on the number line below", "Using the information in the bar chart, ..."), and remain answerable from the figure alone.',
+].join('\n');
+
+function buildSvgNote(subject, count) {
+  const s = String(subject || '').toLowerCase();
+  const figureHeavy =
+    s.includes('mathemat') ||
+    s.includes('math') ||
+    s.includes('physic') ||
+    s.includes('chemist') ||
+    s.includes('geograph') ||
+    s.includes('statist') ||
+    s.includes('econom') ||
+    s.includes('biolog') ||
+    s.includes('science') ||
+    s.includes('social');
+  const minFigures = figureHeavy ? Math.min(3, Math.max(1, Math.round(count / 4))) : Math.min(2, Math.max(1, Math.round(count / 5)));
+  return (
+    `\nFIGURES:\n- This paper should include at least ${minFigures} question${minFigures === 1 ? '' : 's'} that carries an embedded "svg" figure (a figure the student READS). Use more freely wherever a real Rwandan paper would print a diagram, graph or data table.\n` +
+    `${SVG_RULES}\n`
+  );
+}
+
+// Difficulty guidance. "Auto" asks for a naturally-progressing paper; any other
+// selection sets both the overall level and how the paper is spread.
+function buildDifficultyNote(difficulty) {
+  if (!difficulty || difficulty === 'Auto') {
+    return '\nDifficulty: Write a balanced paper — open with accessible questions, then progress to harder application and reasoning questions.\n';
+  }
+  const d = String(difficulty).toLowerCase();
+  const descriptor = DIFFICULTY_DESCRIPTORS[difficulty] || DIFFICULTY_DESCRIPTORS.Moderate;
+  const spread =
+    d === 'easy'
+      ? 'Keep the whole paper accessible: mostly one-step recall and simple application, with at most a couple of slightly harder questions.'
+      : d === 'advanced'
+        ? 'Make the paper demanding: most questions require multi-step reasoning, application, analysis or evaluation; only a couple are recall questions.'
+        : 'Balance the paper: roughly half straightforward questions and half that require reasoning and application.';
+  return `\nDifficulty: ${difficulty} — ${spread} Aim for this quality: "${descriptor}".\n`;
+}
+
+// Cognitive (Bloom) spread calibrated by class level and requested difficulty,
+// so the paper is not a wall of one-note recall questions.
+function buildCognitiveNote(profile, difficulty) {
+  const bloomRef =
+    'Bloom levels for calibration: Remember = recall facts and terms; Understand = explain ideas in your own words; Apply = use knowledge in a situation or problem; Analyze = compare, examine causes and effects, relationships; Evaluate = justify a judgment using criteria; Create = design, produce or propose.\n';
+  if (profile.primary || profile.code === 'nursery') {
+    return `\nCognitive spread: favour clear recall, understanding and everyday application; keep analysis gentle and avoid full evaluate/create tasks. ${bloomRef}`;
+  }
+  const d = String(difficulty || '').toLowerCase();
+  if (d === 'easy') {
+    return `\nCognitive spread: mostly recall and understanding with some simple application. ${bloomRef}`;
+  }
+  if (d === 'advanced') {
+    return `\nCognitive spread: strongly higher-order — application, analysis and evaluation with some create tasks, and only a little recall. ${bloomRef}`;
+  }
+  return `\nCognitive spread: mix levels so the paper is not pure recall — roughly 30% recall and understanding, 40% application and interpretation, 30% analysis and evaluation. ${bloomRef}`;
 }
 
 function buildPrompt({ text, type, count, subject, className, title, difficulty, topics }) {
-  const typeLabel = TYPES[type] || TYPES.quiz;
+  const varietySeed = Math.random().toString(36).slice(2, 10);
   const topicsNote = buildFocusNote(topics, count);
-
-  const difficultyNote =
-    difficulty && difficulty !== 'Auto'
-      ? `\nDifficulty: Write questions of ${difficulty.toLowerCase()} difficulty — ${
-          difficulty === 'Easy'
-            ? 'clear, straightforward recall and simple application.'
-            : difficulty === 'Advanced'
-              ? 'challenging, multi-step questions that require deep understanding and application.'
-              : 'a balanced mix of recall and application.'
-        }\n`
-      : '';
-
-  const marksNote = `\nMarks allocation: Give EVERY question a "marks" value (points) using your own judgement of the question's difficulty and length — for example 1 mark for a simple multiple-choice question, 2-3 marks for a short-answer question, 4-6 marks for a longer structured, diagram or graph question. Marks do NOT have to be equal across questions.\n`;
-
   const visualNote = buildVisualNote(subject, count);
+  const profile = levelProfile(className);
+  const levelNote = profile.note
+    ? `\nClass level (calibrate wording, question length and mark values to this):\n- ${profile.note}\n`
+    : '';
+  const subjectNote = `\nSubject technique (follow it):\n- ${subjectStrategy(subject)}\n`;
 
-  return `You are an experienced teacher and national examiner in Rwanda preparing students for school tests and the Rwandan national examinations.
+  const difficultyNote = buildDifficultyNote(difficulty);
+  const cognitiveNote = buildCognitiveNote(profile, difficulty);
+  const mixNote = buildMixNote(type, count);
+  const svgNote = buildSvgNote(subject, count);
 
-Task: Write exactly ${count} REAL exam questions for ${subject || 'the subject'}${className ? `, class ${className}` : ''}${title ? `, assessment titled "${title}"` : ''}, based ONLY on the course notes below. The questions must look and feel exactly like the questions students actually write in real school exams and national papers — they must test genuine knowledge and understanding of the subject matter.
+  const materialNote = [
+    'HOW TO USE THE COURSE NOTES BELOW:',
+    'The COURSE NOTES are optional supplementary reference. You may use them to verify facts, confirm topic scope, or choose Rwanda-specific examples.',
+    'You are NOT limited to the notes. Draw on your full knowledge of the subject and Rwanda\'s REB curriculum to create exam-worthy questions.',
+    'If the notes are incomplete, missing a topic, or not provided, generate questions entirely from your own knowledge of the subject.',
+    'Do NOT copy sentences from the notes into questions, and do NOT ask "according to the notes", "according to the document", or any question that only a reader of the uploaded file could answer.',
+  ].join('\n');
 
-Language: Write all questions, options, answers and explanations in the SAME language as the course notes below (if the notes are in English, write in English; if in Kinyarwanda or French, write in that language).
+  const stemNote = [
+    '\nClear question stems (clarity is a top priority):',
+    '- Write stems as short, direct questions or commands — "Describe ...", "Explain why ...", "Calculate ...", "What is the role of ...?" — in the style of real school papers.',
+    '- Each stem must be STANDALONE and self-contained: a student must understand it on its own, without the document and without relying on other questions.',
+    '- Test one clear idea per question; keep sentences short; use grade-appropriate vocabulary; avoid double negatives and vague wording.',
+    '- Prefer questions that test understanding and application ("why", "how", "compare", "calculate", "apply") over lazy recall ("define", "state", "list") — but keep enough accessible recall so weaker students can attempt the paper.',
+  ].join('\n');
 
-The questions must test the ACTUAL SUBJECT CONTENT, for example:
-- Definitions, meanings and explanations of concepts.
-- Causes, effects, processes, differences and comparisons.
-- Classifications, examples, functions and importance.
-- Real-world application (e.g. in Rwanda): "Describe two effects of soil erosion on farming in Rwanda", "Explain how rotation of the earth causes day and night", "Why are forests important for rain formation?".
-- Questions that make students think and apply what they learned, not just recall the document layout.
+  const mcqNote = [
+    '\nMultiple-choice quality (applies to every MCQ):',
+    '- Exactly 4 options, ONE clearly correct, and 3 plausible-but-clearly-wrong distractors.',
+    '- Wrong options must be wrong for a genuine reason: a common misconception, an inverted relationship, a wrong value or a reversed condition — never obviously absurd or comical.',
+    '- Keep the options parallel and of similar length so the correct answer is never signalled by option length or wording.',
+    '- NO "all of the above", "none of the above", "both a and b" or "not sure". The correctIndex must point to the one option that is factually correct.',
+  ].join('\n');
 
-STRICTLY FORBIDDEN — NEVER write questions about the document itself:
-- NO questions about who wrote, edited or signed the foreword, preface, acknowledgement, introduction or dedication.
-- NO questions about copyright years, publishers, ISBNs, or "who is the Director General of REB".
-- NO questions about page numbers, section/subsection numbers or table-of-contents listings (e.g. "Which subsection covers X?", "What unit starts on page 51?", "Which section is titled ...?").
-- NO questions about document abbreviations (CTLR, CTLRD, REB) or document structure.
-- NO questions that only someone who read the front matter of the book could answer.
+  const marksNote =
+    '\nMarks: Give EVERY question a "marks" value that fits its type, length and difficulty — 1-2 marks for a multiple-choice question, 2-4 for a short-answer question, 4-6 for a structured, diagram or graph question, 6-10 for a longer extended/essay question. Keep the marking consistent: questions of the same size and demand carry the same marks; do not inflate marks.\n';
 
-Title: Choose a short, professional title such as "Senior 5 Geography Exam" or "S3 Mathematics Exercise — Unit 2". Never use the words "national", "national examination" or "national assessment" in the title, and never include any school name or abbreviation in the title.
+  const distinctNote =
+    '\nDistinctness and layout:\n- No two questions may test the same fact; each question must add a new point.\n- Order the paper like a real test: start with the easier recall questions and end with the harder application and analysis questions.\n';
 
-Format by type:
-- quiz and exam: mostly multiple-choice questions (exactly 4 options, one correct "correctIndex") plus a few short-answer questions, like Section A of a real Rwandan exam paper.
-- exercise and homework: mostly short-answer and structured questions with an "answer" field.
-- Every question needs a short "explanation" for the teacher's answer key.
+  const exampleNote = [
+    '\nGOOD vs POOR (study this before writing):',
+    '- POOR (material-echo): "According to the notes, what is soil erosion?"  or  "Complete the sentence: Soil erosion is ___."',
+    '- GOOD (clear exam question referring to the subject, informed by — but not copying — the notes):',
+    '  "Describe TWO human activities that accelerate soil erosion in Rwanda and suggest one conservation practice farmers can use to reduce it."',
+    '- POOR: "Which page of the document discussed photosynthesis?"',
+    '- GOOD: "Explain why a plant kept in a dark room for several days produces less oxygen, and name the part of the plant cell where photosynthesis takes place."',
+  ].join('\n');
 
-Visual questions (choose the BEST visual format for each question):
-- Whenever a question is genuinely clearer with a visual, mark it with the right flag so the PDF prints the correct drawing area:
-  * "diagram": true — anything the student must draw and label (biological structure, cross-section, a map sketch, a flow chart, a timeline, an experimental set-up, a circuit, the water cycle, an ecosystem, etc.). The PDF prints an empty draw box.
-  * "graph": true — anything the student must plot on axes (line, bar, histogram, polygon, curve). The PDF prints labelled axes from the "graphX" and "graphY" labels.
-- Decide per question which visual best tests the content — do NOT force diagrams or graphs where a plain question is better, and do not use a drawing when the content clearly needs a graph (or vice versa).
-- Visual questions MUST NOT have options. Set "diagram": true OR "graph": true (never both). Their "answer" field must describe what the labelled drawing/graph must show, and "graphX"/"graphY" are required when "graph": true.
+  const checkNote = [
+    '\nFINAL CHECK (silently verify all of this before you respond):',
+    '1. Every MCQ has exactly 4 options and its correctIndex points to the factually correct option.',
+    '2. Every open question has a complete, accurate model "answer" grounded in the subject matter.',
+    '3. No two questions are duplicates or near-duplicates.',
+    '4. No question depends on having read the document ("according to the notes", pages, authors, sections, front matter).',
+    `5. There are exactly ${count} questions and their marks are consistent.`,
+    `6. Every question is genuine curriculum-based exam content — not a template, not a placeholder, not copied from a source.`,
+  ].join('\n');
+
+  const formatNote = [
+    `\nPaper structure for "${type}" (${count} questions total):`,
+    type === 'exam'
+      ? '- Section A: "choice" and "true_false" questions (fast, 1-2 marks each).\n- Section B: "calculation" and "short" questions (2-4 marks each).\n- Section C: longer "practice"/"open" questions (5-8 marks each).'
+      : type === 'quiz'
+        ? '- Mostly "choice" questions with a mix of "true_false", "calculation" and "short" — quiz-style with a quick answer key.'
+        : type === 'homework'
+          ? '- A balanced set of "choice", "short", "calculation" and "practice" questions suitable for working alone at home.'
+          : '- Mainly "calculation", "practice" and "short" working-out questions with a few "choice" checks.',
+    'Number the questions 1, 2, 3, ... in the order they should be answered.',
+  ].join('\n');
+
+  return `You are a senior national examiner in Rwanda, aligned with REB (Rwanda Education Board) curriculum standards, writing a ${type === 'quiz' || type === 'exam' ? 'formal examination paper' : 'class exercise'}.
+
+Task: Write exactly ${count} clear, exam-worthy questions for ${subject || 'the subject'}${className ? `, class ${className}` : ''}${title ? `, titled "${title}"` : ''}. Generate every question from your own knowledge of the subject and Rwanda's curriculum. If course notes are provided below, you may use them as optional supplementary reference to verify facts or choose Rwanda-specific examples — but you are not limited to their content.
+
+Language: Write all questions, options, answers, explanations and the title in the SAME language as the COURSE NOTES below (English, Kinyarwanda or French — match the notes). Only the JSON field names stay in English.
+
+${materialNote}
+
+${stemNote}
+
+${mcqNote}${exampleNote}
+
+${cognitiveNote}
+${difficultyNote}${levelNote}${subjectNote}
+${formatNote}
+${mixNote}
+${svgNote}
+- Every question needs a short "explanation" for the teacher's answer key that states why the answer/option is correct.
 ${visualNote}
-${difficultyNote}${marksNote}
+${distinctNote}${marksNote}
 ${topicsNote}
+${checkNote}
+Variety seed: ${varietySeed} — use this to ensure your questions are original and different from any standard or previously generated paper. Do not repeat common template questions.
 Respond with ONLY valid JSON (no markdown fences), using this exact schema:
 ${QUESTION_SCHEMA_HINT}
 
 Metadata: subject="${subject}", class="${className}", title="${title || ''}", difficulty="${difficulty || 'Auto'}".
 
-COURSE NOTES:
+COURSE NOTES (reference source):
 ${selectTopicText(text, topics, 50000)}`;
 }
 
 async function callOpenAI(promptText, system) {
-  const apiKey = process.env.OPENAI_API_KEY || process.env.AI_API_KEY;
+  const apiKey = (process.env.OPENAI_API_KEY || process.env.AI_API_KEY || '').trim();
   const baseUrl = process.env.AI_BASE_URL || 'https://api.openai.com/v1';
   const model = process.env.AI_MODEL || 'gpt-4o-mini';
   if (!apiKey) return null;
+  if (apiKey.length < 20) {
+    throw new Error('OPENAI_API_KEY/AI_API_KEY in backend/.env does not look like a valid API key.');
+  }
 
   const response = await fetch(`${baseUrl.replace(/\/$/, '')}/chat/completions`, {
     method: 'POST',
@@ -285,9 +477,10 @@ async function callOpenAI(promptText, system) {
     },
     body: JSON.stringify({
       model,
-      temperature: 0.7,
+      temperature: 0.6,
+      max_tokens: 8000,
       messages: [
-        { role: 'system', content: system || 'You are a national examiner in Rwanda writing real school exam questions that test subject knowledge. Never write questions about the document itself (authors, forewords, page numbers, section numbers, table of contents). Respond as strict JSON.' },
+        { role: 'system', content: system || 'You are a senior national examiner in Rwanda aligned with REB curriculum standards. You create clear, standalone exam questions from your own knowledge of the subject. If course notes are provided, they are optional supplementary reference only. Never copy text from any source, never ask "according to the notes", and never write questions about a document itself. Respond as strict JSON.' },
         { role: 'user', content: promptText },
       ],
     }),
@@ -303,43 +496,61 @@ async function callOpenAI(promptText, system) {
 }
 
 async function callGemini(promptText, system) {
-  const apiKey = process.env.GEMINI_API_KEY;
-  const model = process.env.GEMINI_MODEL || 'gemini-flash-latest';
+  const apiKey = (process.env.GEMINI_API_KEY || '').trim();
+  // "gemini-flash-latest" resolves to the newest flash (e.g. 3.8), which is
+  // often unavailable under demand spikes for new-user keys. 3.6-flash is the
+  // stable flash on this account. Still overridable via GEMINI_MODEL.
+  const model = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
   if (!apiKey) return null;
-
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ role: 'user', parts: [{ text: `${system ? `${system}\n\n` : ''}${promptText}` }] }],
-        generationConfig: {
-          temperature: 0.7,
-          responseMimeType: 'application/json',
-        },
-      }),
-    }
-  );
-
-  if (!response.ok) {
-    const detail = await response.text().catch(() => '');
-    throw new Error(`Gemini request failed (${response.status}) ${detail.slice(0, 200)}`);
+  if (!GEMINI_KEY_RE.test(apiKey)) {
+    throw new Error(`GEMINI_API_KEY in backend/.env does not look like a valid API key. ${GEMINI_KEY_HINT}.`);
   }
 
-  const data = await response.json();
-  const content = data.candidates?.[0]?.content?.parts?.map((p) => p.text).join('') || '';
-  if (!content) throw new Error('Gemini returned an empty response');
-  return content;
+  // Transient 503 ("high demand") responses are common on shared/free plans;
+  // retry them a couple of times with a short backoff before giving up.
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  let lastError = null;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    if (attempt > 0) await sleep(2500 * attempt);
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ role: 'user', parts: [{ text: `${system ? `${system}\n\n` : ''}${promptText}` }] }],
+          generationConfig: {
+            temperature: 0.6,
+            maxOutputTokens: 8192,
+            responseMimeType: 'application/json',
+          },
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      lastError = new Error(
+        `Gemini request failed (${response.status}) ${(await response.text().catch(() => '')).slice(0, 200)}`
+      );
+      if (response.status !== 503) throw lastError;
+      continue; // retry transient capacity errors
+    }
+
+    const data = await response.json();
+    const content = data.candidates?.[0]?.content?.parts?.map((p) => p.text).join('') || '';
+    if (!content) throw new Error('Gemini returned an empty response');
+    return content;
+  }
+  throw lastError || new Error('Gemini request failed');
 }
 
 async function generateWithAI(opts) {
-  const content = await callOpenAI(buildPrompt(opts));
+  const content = await callOpenAI(buildPrompt(opts), ASSESSMENT_SYSTEM_PROMPT);
   return content ? parseQuestions(content) : null;
 }
 
 async function generateWithGemini(opts) {
-  const content = await callGemini(buildPrompt(opts));
+  const content = await callGemini(buildPrompt(opts), ASSESSMENT_SYSTEM_PROMPT);
   return content ? parseQuestions(content) : null;
 }
 
@@ -353,8 +564,30 @@ function parseQuestions(content) {
   if (start === -1 || end === -1 || end <= start) {
     throw new Error('AI response was not valid JSON');
   }
+  cleaned = cleaned.slice(start, end + 1);
 
-  const parsed = JSON.parse(cleaned.slice(start, end + 1));
+  let parsed = null;
+  let attempts = 0;
+  for (;;) {
+    try {
+      parsed = JSON.parse(cleaned);
+      break;
+    } catch (err) {
+      attempts += 1;
+      if (attempts > 3) {
+        throw new Error(`AI response was not valid JSON: ${err.message}`);
+      }
+      // Recovery for a model that double-encodes JSON (a JSON string wrapping
+      // the object) or escapes every quote instead of keeping valid JSON.
+      const double = cleaned.match(/^"([\s\S]*)"$/);
+      if (double) {
+        cleaned = double[1].replace(/\\"/g, '"').replace(/\\\\/g, '\\').replace(/\\n/g, '\n');
+        continue;
+      }
+      cleaned = cleaned.replace(/\\"/g, '"').replace(/\\\\/g, '\\').replace(/\\n/g, '\n');
+    }
+  }
+
   const questions = Array.isArray(parsed.questions) ? parsed.questions : [];
   if (questions.length === 0) throw new Error('AI response contained no questions');
 
@@ -364,37 +597,69 @@ function parseQuestions(content) {
   };
 }
 
+// Turn a model-produced SVG into a safe image data URI we can hand to the
+// frontend. Rejects anything not a single <svg> root and strips scripts, event
+// handlers and embedded HTML so an SVG can never execute in the browser.
+function safeSvgFigure(svg) {
+  let s = String(svg || '').trim();
+  if (!s) return null;
+  if (!/^<svg[\s>]/i.test(s) || !/<\/svg>\s*$/i.test(s)) return null;
+  if (/<script|<foreignObject|<\/html|<iframe/i.test(s)) return null;
+  s = s.replace(/\son\w+\s*=\s*("[^"]*"|'[^']*'|[\w.]+)/gi, '');
+  s = s.replace(/<style\b[\s\S]*?<\/style>/gi, '');
+  if (/<script|<foreignObject|<iframe/i.test(s)) return null;
+  if (!/xmlns=/.test(s)) s = s.replace(/<svg\b/i, '<svg xmlns="http://www.w3.org/2000/svg"');
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(s)}`;
+}
+
+function computeQuestionType(q, isMcq) {
+  const t = String(q.type || '').toLowerCase().trim();
+  if (['choice', 'true_false', 'calculation', 'short', 'practice', 'open'].includes(t)) return t;
+  if (isMcq) return 'choice';
+  if (q.answer) return 'short';
+  return 'open';
+}
+
 function normalizeQuestion(q) {
   if (!q || typeof q !== 'object' || !q.question) return null;
   const isMcq = Array.isArray(q.options) && q.options.length >= 2;
+  const type = computeQuestionType(q, isMcq);
+  const diagramFlag = q.diagram === true;
+  const graphFlag = q.graph === true;
   if (isMcq) {
     const options = q.options.slice(0, 4).map((o) => String(o || '').trim());
     let correctIndex = Number.isInteger(q.correctIndex) ? q.correctIndex : -1;
     if (correctIndex < 0 || correctIndex >= options.length) correctIndex = 0;
     return {
+      type,
       question: String(q.question).trim(),
       marks: Math.max(1, Number(q.marks) || 1),
       options,
       correctIndex,
       answer: '',
       explanation: String(q.explanation || '').trim(),
-      diagram: q.diagram === true,
-      graph: q.graph === true,
+      diagram: diagramFlag,
+      graph: graphFlag,
       graphX: String(q.graphX || '').trim(),
       graphY: String(q.graphY || '').trim(),
+      figure: safeSvgFigure(q.svg),
+      figureSpec: String(q.figureSpec || q.figSpec || '').trim(),
     };
   }
   return {
+    type,
     question: String(q.question).trim(),
     marks: Math.max(1, Number(q.marks) || 1),
     options: [],
     correctIndex: -1,
     answer: String(q.answer || '').trim(),
     explanation: String(q.explanation || '').trim(),
-    diagram: q.diagram === true,
-    graph: q.graph === true,
+    diagram: diagramFlag,
+    graph: graphFlag,
     graphX: String(q.graphX || '').trim(),
     graphY: String(q.graphY || '').trim(),
+    figure: safeSvgFigure(q.svg),
+    figureSpec: String(q.figureSpec || q.figSpec || '').trim(),
   };
 }
 
@@ -509,11 +774,6 @@ async function generateTopics(text) {
   return headings;
 }
 
-// Blacklist used ONLY for the keyword fallback (single-word "topics" when no
-// real headings exist), where generic words would make useless chips.
-const KEYWORD_JUNK =
-  /\b(students?|school|teacher|subject|class|section|instructions?|questions?|answers?|marking|marks?|time\s+allowed|exam|examination|assessment|test|quiz|page|foreword|acknowledgements?|dedication|preface|contents|copyright|reserved|director|minister|government|education|rwanda|institution|registration|name|date)\b/i;
-
 // A topic title is furniture (not a real subject topic) when it IS one of the
 // document's non-subject parts: a foreword, an address, a school motto, an exam
 // form field, a page marker, etc. Merely CONTAINING a common word like "school"
@@ -557,18 +817,15 @@ function extractTopicsFallback(text) {
 
   const segments = [];
   for (const line of rawLines) {
-    const parts = line.split(
-      /(?=\b(?:UNIT|CHAPTER|LESSON|TOPIC|MODULE|PART)\b\s*[\dIVXLC]+[^\p{L}\p{N}]*[\p{L}])/iu
-    );
+    const parts = line.split(HEADING_SPLIT_RE);
     for (const part of parts) {
       const t = part.trim();
       if (t) segments.push(t);
     }
   }
 
-  const isUnitHeading = (s) => /^(UNIT|CHAPTER|LESSON|TOPIC|MODULE|PART)\b/iu.test(s);
-  const isTopHeading = (s) =>
-    isUnitHeading(s) && /^(UNIT|CHAPTER|LESSON|TOPIC|MODULE|PART)\b\s*[\dIVXLC]+[^\p{L}\p{N}]*[\p{L}]/iu.test(s);
+  const isUnitHeading = (s) => new RegExp(`^${MARKER}\\b`, 'u').test(s);
+  const isTopHeading = (s) => HEADING_LINE_RE.test(s);
   // Numbered sub-headings (e.g. "1.1 Cell structure", "2.3 Climate")
   const isSubHeading = (s) => /^\d{1,2}\.\d{1,3}(\.\d{1,2})?\s*\p{Lu}/u.test(s);
 
@@ -585,6 +842,9 @@ function extractTopicsFallback(text) {
     title = cleanTitle(title);
     const key = normalizeTopicKey(title);
     if (!title || !key || seen.has(key) || isJunkTitle(title)) return;
+    // Reject sentence fragments that are not headings (e.g. "unit is
+    // introduced with an activity to enable learners", "part into halves.").
+    if (/^\p{Ll}/u.test(title)) return;
     seen.add(key);
     const subs = [...new Set(subtopics.map((s) => cleanTitle(s)).filter(Boolean))].filter(
       (s) => normalizeTopicKey(s) !== key && !isJunkTitle(s)
@@ -630,168 +890,49 @@ function extractTopicsFallback(text) {
   }
   if (current) pushTopic(current, currentSubs);
 
-  if (topics.length >= 1) return topics;
-  const kws = keywordRanks(text)
-    .filter((k) => !KEYWORD_JUNK.test(k))
-    .slice(0, 20);
-  return kws.length >= 3 ? kws.map((k) => ({ name: k.charAt(0).toUpperCase() + k.slice(1), subtopics: [] })) : [];
+  return topics;
 }
 
 // ---- Offline fallback: keyword + sentence based generator --------------------
+// REMOVED. Mock template questions ("Complete the sentence", "Explain in your own
+// words") were confusing teachers — assessments now come only from a real AI
+// provider (Gemini first, then OpenAI). ------------------------------------------------------------------
 
-const STOPWORDS = new Set(
-  'the a an and or but of in on for with to from is are was were be been being as at by it its this that these those which who whom whose there their they he she we you your our not no yes so than then when where what how do does did has have had can could will would should may might must all any each more most other some such only own same very just also about into over after before between during through under again further once here'.split(
-    ' '
-  )
-);
+// Google issues Gemini keys in more than one format (classic "AIza..." keys and
+// newer "AQ..." keys). We cannot tell a good key from a bad one by prefix, so we
+// only sanity-check length/charset and let the live API be the real validator.
+//
+// A too-short or clearly bogus value in backend/.env is a configuration error we
+// should surface instead of silently producing nothing.
+const GEMINI_KEY_RE = /^[A-Za-z0-9._~-]{20,}$/;
+const GEMINI_KEY_HINT = 'Update GEMINI_API_KEY in backend/.env with a key from https://aistudio.google.com/apikey';
 
-// Remove PDF page markers, copyright notices and front matter so the offline
-// generator does not build questions from the book's cover/foreword pages.
-function cleanDocumentText(text) {
-  return (text || '')
-    .replace(/--\s*\d+\s+of\s+\d+\s*--/g, '\n')
-    .split('\n')
-    .map((l) => l.trim())
-    .filter((l) => {
-      if (!l) return false;
-      if (/^\d+\s*$/.test(l)) return false;
-      if (/^[ivxlc]+\.?$/i.test(l)) return false;
-      if (/©|all rights reserved|the property of|published by/i.test(l)) return false;
-      if (/^(foreword|acknowledgements?|dedication|preface|table of contents|copyright|about this book)\b/i.test(l)) return false;
-      if (/^(r\.?e\.?b|director general|ministry of education|education board|head of curriculum)\b/i.test(l)) return false;
-      if (/student'?s? book/i.test(l)) return false;
-      if (/^[A-Z][A-Za-z]*(?:\s+[A-Z][A-Za-z]*)*,\s*$/i.test(l)) return false;
-      return true;
-    })
-    .join('\n');
-}
-
-function splitSentences(text) {
-  return text
-    .replace(/\s+/g, ' ')
-    .split(/(?<=[.!?])\s+/)
-    .map((s) => s.trim())
-    .filter(
-      (s) =>
-        s.length > 20 &&
-        s.length < 260 &&
-        /\d|[A-Za-z]{3}/.test(s) &&
-        !/^\s*[•\-\d.]+\s*$/.test(s) &&
-        !/wish to (sincerely )?(extend|express)|appreciation|gratitude|contributed towards|director general|r\.?e\.?b|student'?s? book|all rights reserved|the property of|this book is|foreword|acknowledgement/i.test(s)
-    );
-}
-
-function keywordRanks(text) {
-  const freq = {};
-  (text.toLowerCase().match(/[a-z]{4,}/g) || []).forEach((w) => {
-    if (!STOPWORDS.has(w)) freq[w] = (freq[w] || 0) + 1;
-  });
-  return Object.entries(freq).sort((a, b) => b[1] - a[1]).map(([w]) => w);
-}
-
-function generateFallback({ text, type, count, subject, className, title, topics }) {
-  const source = cleanDocumentText(selectTopicText(text, topics, 60000));
-  const sentences = splitSentences(source);
-  if (sentences.length === 0) {
-    throw new Error('Not enough readable text to build an assessment from this document.');
-  }
-
-  const keywords = keywordRanks(source).slice(0, 60);
-  const picked = [];
-  const keySentences = [];
-  for (const kw of keywords) {
-    const found = sentences.find((s) => s.toLowerCase().includes(kw) && !picked.includes(s));
-    if (found) {
-      picked.push(found);
-      keySentences.push(found);
-    }
-    if (keySentences.length >= Math.min(Math.ceil(count * 1.5), sentences.length)) break;
-  }
-  const pool = keySentences.length >= 4 ? keySentences : sentences;
-
-  const mcqTarget = type === 'exercise' || type === 'homework' ? Math.ceil(count / 2) : count;
-  const questions = [];
-  const used = new Set();
-
-  for (let i = 0; i < pool.length && questions.length < mcqTarget; i += 1) {
-    const s = pool[i];
-    const kw = keywords.find((k) => s.toLowerCase().includes(k)) || s.toLowerCase().match(/[a-z]{5,}/)?.[0];
-    if (!kw) continue;
-    const distractors = keywords.filter((k) => k !== kw && !s.toLowerCase().includes(k)).slice(0, 3);
-    if (distractors.length < 3) continue;
-
-    const blank = s.replace(new RegExp(`\\b${kw}\\b`, 'i'), '______');
-    const options = [kw, ...distractors].sort(() => Math.random() - 0.5);
-    const qText = `Complete the sentence: "${blank}"`;
-    if (used.has(qText)) continue;
-    used.add(qText);
-    questions.push({
-      question: qText,
-      marks: 1,
-      options,
-      correctIndex: options.indexOf(kw),
-      answer: '',
-      explanation: `The notes state: "${s}"`,
-    });
-  }
-
-  for (let i = 0; i < pool.length && questions.length < count; i += 1) {
-    const s = pool[(i * 7 + 3) % pool.length];
-    const qText = `Explain in your own words: "${s}"`;
-    if (used.has(qText)) continue;
-    used.add(qText);
-    questions.push({
-      question: qText,
-      marks: 3,
-      options: [],
-      correctIndex: -1,
-      answer: s,
-      explanation: 'Base your answer on this statement from the notes.',
-    });
-  }
-
-  const qs = questions.slice(0, count);
-
-  return { title: null, questions: qs };
-}
-
-// Offline generation that respects per-topic limits: each limited topic
-// produces up to its own quota of questions, then the remainder comes from the
-// other selected topics (or the whole document when nothing else is selected).
-function generateFallbackDistributed(opts) {
-  const { topics = [], count } = opts;
-  const limited = topics.filter((t) => t.limit > 0);
-  const unlimited = topics.filter((t) => t.limit <= 0);
-  if (limited.length === 0) return generateFallback(opts);
-
-  const questions = [];
-  for (const t of limited) {
-    const remaining = count - questions.length;
-    if (remaining <= 0) break;
-    const n = Math.min(t.limit, remaining);
-    const seg = selectTopicText(opts.text, [{ name: t.name, subtopics: t.subtopics }], 60000);
-    if (!seg || seg.trim().length < 50) continue;
-    const r = generateFallback({ ...opts, text: seg, count: n, topics: [] });
-    questions.push(...r.questions);
-  }
-  const remaining = count - questions.length;
-  if (remaining > 0) {
-    const seg = unlimited.length ? selectTopicText(opts.text, unlimited, 60000) : opts.text;
-    const r = generateFallback({ ...opts, text: seg, count: remaining, topics: [] });
-    questions.push(...r.questions);
-  }
-  return { title: null, questions: questions.slice(0, count) };
-}
-
-// Main entry: prefer configured AI providers, fall back to the offline generator.
+// Main entry: real AI providers only — Gemini first, OpenAI-compatible next.
+// There is deliberately NO offline mock generator: a teacher must never see
+// fake "complete the sentence" questions. If no provider can generate, we fail
+// loudly with an actionable message.
 async function generateAssessment(opts) {
   const normalized = { ...opts, topics: normalizeTopics(opts.topics) };
-  const providers = [];
-  if (process.env.GEMINI_API_KEY) providers.push({ name: 'gemini', fn: generateWithGemini });
-  if (process.env.OPENAI_API_KEY || process.env.AI_API_KEY) providers.push({ name: 'openai', fn: generateWithAI });
 
-  let source = 'fallback';
+  const geminiKey = (process.env.GEMINI_API_KEY || '').trim();
+  const openaiKey = (process.env.OPENAI_API_KEY || process.env.AI_API_KEY || '').trim();
+
+  if (geminiKey && !GEMINI_KEY_RE.test(geminiKey)) {
+    throw new Error(`GEMINI_API_KEY in backend/.env does not look like a valid API key. ${GEMINI_KEY_HINT}.`);
+  }
+  if (!geminiKey && !openaiKey) {
+    throw new Error(
+      'No AI provider is configured. Add a valid GEMINI_API_KEY or OPENAI_API_KEY to backend/.env.'
+    );
+  }
+
+  const providers = [];
+  if (geminiKey) providers.push({ name: 'gemini', fn: generateWithGemini });
+  if (openaiKey && openaiKey.length >= 20) providers.push({ name: 'openai', fn: generateWithAI });
+
+  let source = null;
   let result = null;
+  let lastError = null;
 
   for (const p of providers) {
     try {
@@ -802,13 +943,18 @@ async function generateAssessment(opts) {
         break;
       }
     } catch (error) {
-      console.warn(`[ai] ${p.name} failed, trying next provider:`, error.message);
+      console.warn(`[ai] ${p.name} failed:`, error.message);
+      lastError = error;
     }
   }
 
-  if (!result) result = generateFallbackDistributed(normalized);
+  if (!result) {
+    throw new Error(
+      `Assessment generation failed. ${lastError ? lastError.message : 'No AI provider produced questions.'}`
+    );
+  }
 
-  const fallbackTitle =
+  const generatedTitle =
     opts.title ||
     `${opts.subject || 'General'} ${TYPES[opts.type] || 'quiz'} — ${new Date().toLocaleDateString('en-GB', {
       day: 'numeric',
@@ -818,9 +964,9 @@ async function generateAssessment(opts) {
 
   return {
     source,
-    title: result.title || fallbackTitle,
+    title: result.title || generatedTitle,
     questions: result.questions,
   };
 }
 
-module.exports = { extractText, generateAssessment, generateTopics, generateFallback, normalizeTopics };
+module.exports = { extractText, generateAssessment, generateTopics, normalizeTopics };

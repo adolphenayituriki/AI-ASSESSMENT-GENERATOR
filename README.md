@@ -250,7 +250,7 @@ Only `MONGODB_URI` and `JWT_SECRET` are required; AI keys are optional.
 | `MONGODB_URI` | MongoDB connection string | `mongodb://localhost:27017/ai-assessment-tool` |
 | `JWT_SECRET` | Token signing secret | a long random string |
 | `GEMINI_API_KEY` | Enables Google Gemini generation | `AIza...` |
-| `GEMINI_MODEL` | Gemini model name (optional) | `gemini-flash-latest` |
+| `GEMINI_MODEL` | Gemini model name (optional) | `gemini-3.6-flash` |
 | `OPENAI_API_KEY` / `AI_API_KEY` | Enables OpenAI-compatible generation | `sk-...` |
 | `AI_BASE_URL` | OpenAI-compatible base URL (optional) | `https://api.openai.com/v1` |
 | `AI_MODEL` | Model name (optional) | `gpt-4o-mini` |
